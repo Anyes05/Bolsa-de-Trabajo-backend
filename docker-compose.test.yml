@@ -6,13 +6,15 @@ services:
     networks:
       - traefik-public
     environment:
-      TZ: America/Montevideo
-      DB_HOST: pg
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASS: postgres
-      DB_PORT: 5432
-      LOGSTASH_HOST:
+      TYPEORM_CONNECTION: postgres
+      TYPEORM_HOST: pg
+      TYPEORM_USERNAME: postgres
+      TYPEORM_PASSWORD: postgres
+      TYPEORM_DATABASE: postgres
+      TYPEORM_PORT: 5432
+      TYPEORM_SYNCHRONIZE: true
+      TYPEORM_LOGGING: true
+      TYPEORM_ENTITIES: build/models/*.js
     deploy:
       labels:
         - "traefik.enable=true"
@@ -41,9 +43,9 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: centroempleo
+      POSTGRES_DB: postgres
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root
+      POSTGRES_PASSWORD: postgres
     deploy:
       replicas: 1
       placement:

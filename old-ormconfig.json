@@ -11,7 +11,8 @@
   ],
   "logging": false,
   "synchronize": true
-}, {
+},
+{
   "name": "appsocios",
   "type": "postgres",
   "host": "db.cpyxafjlyybbgggzhnfd.supabase.co",
@@ -19,6 +20,4 @@
   "username": "postgres",
   "password": "MaxiSebaMartin",
   "database": "postgres"
-}
-
-]
+}]
