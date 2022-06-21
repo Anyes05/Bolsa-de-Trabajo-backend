@@ -12,8 +12,8 @@ services:
       TYPEORM_PASSWORD: postgres
       TYPEORM_DATABASE: postgres
       TYPEORM_PORT: 5432
-      TYPEORM_SYNCHRONIZE: true
-      TYPEORM_LOGGING: true
+      TYPEORM_SYNCHRONIZE: 'true'
+      TYPEORM_LOGGING: 'true'
       TYPEORM_ENTITIES: build/models/*.js
     deploy:
       labels:
