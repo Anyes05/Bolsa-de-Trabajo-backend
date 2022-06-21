@@ -6,14 +6,12 @@ import { startUp } from "./libs/startUp";
 // createConnection method will automatically read connection options from the ormconfig file or environment variables
 export const connection = {
   async create(options? : ConnectionOptions[]){
-    await createConnections(options).then(async () => {
+    await createConnections().then(async () => {
       await startUp();
 
       console.info("DB is connected...")    
       
-    }).catch(e => console.log(e));
-    
-
+    }).catch(e => console.log(e));   
   },
   
   async close() {
