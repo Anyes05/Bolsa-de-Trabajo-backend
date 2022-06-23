@@ -13,7 +13,7 @@ services:
       TYPEORM_DATABASE: postgres
       TYPEORM_PORT: 5432
       TYPEORM_SYNCHRONIZE: 'true'
-      TYPEORM_LOGGING: 'true'
+      TYPEORM_LOGGING: 'false'
       TYPEORM_ENTITIES: build/models/*.js
     deploy:
       labels:
