@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-export const sendEmail = async (to: string,asunto: string, html: string ): Promise<boolean> => {
+export const sendEmail = async (to: string, asunto: string, html: string): Promise<boolean> => {
 
 
     var transporter = nodemailer.createTransport({
@@ -8,13 +8,13 @@ export const sendEmail = async (to: string,asunto: string, html: string ): Promi
         port: 465,
         secure: true,
         auth: {
-            user: "centroempleotest@gmail.com",
-            pass: "sevhbkeywgxvpgzj"
+            user: process.env.SMTP_GMAIL_MAIL,
+            pass: process.env.SMTP_GMAIL_PASS
         }
     });
 
     var mailOptions = {
-        from: "Centro Empleo <centroempleotest@gmail.com>",
+        from: "Centro Empleo <" + process.env.SMTP_GMAIL_MAIL + ">",
         to: to,
         subject: asunto,
         html: html
@@ -24,7 +24,7 @@ export const sendEmail = async (to: string,asunto: string, html: string ): Promi
         console.log('Ready for send emails');
     })
 
-    transporter.sendMail(mailOptions, (error: any, info: any)  => {
+    transporter.sendMail(mailOptions, (error: any, info: any) => {
         if (error) {
             return false
         } else {
