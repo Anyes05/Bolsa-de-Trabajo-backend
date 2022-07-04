@@ -14,7 +14,12 @@ services:
       TYPEORM_PORT: 5432
       TYPEORM_SYNCHRONIZE: 'true'
       TYPEORM_LOGGING: 'false'
-      TYPEORM_ENTITIES: build/models/*.js
+      TYPEORM_ENTITIES: build/models/*.js 
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_HOST: pg
+      POSTGRES_PORT: 5432
     deploy:
       labels:
         - "traefik.enable=true"
