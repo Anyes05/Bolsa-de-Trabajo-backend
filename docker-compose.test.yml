@@ -6,25 +6,14 @@ services:
     networks:
       - traefik-public
     environment:
-      TYPEORM_CONNECTION: postgres
-      TYPEORM_HOST: pg
-      TYPEORM_USERNAME: postgres
-      TYPEORM_PASSWORD: postgres
-      TYPEORM_DATABASE: postgres
-      TYPEORM_PORT: 5432
-      TYPEORM_SYNCHRONIZE: 'true'
-      TYPEORM_LOGGING: 'false'
-      TYPEORM_ENTITIES: build/models/*.js 
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_HOST: pg
       POSTGRES_PORT: 5432
-      JWT_TOKEN: Hnn9DYrQJ5apEDHp
       URL: https://portal-empleo-ccisj.test.softtero.com/
       ADMIN: bolsatrabajo.ccisj@gmail.com
       SMTP_GMAIL_MAIL: bolsatrabajo.ccisj@gmail.com
-      SMTP_GMAIL_PASS: qroafpfvccfxwale
       ADMIN_MAIL: bolsatrabajo.ccisj@gmail.com
       ADMIN_PASS: 12345
     deploy:
