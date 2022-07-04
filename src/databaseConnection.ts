@@ -16,8 +16,7 @@ const connectionConfig: ConnectionOptions[] = [{
     "build/models/*.js"
   ],
   logging: false,
-  synchronize: true,
-  dropSchema: true
+  synchronize: true
 }]
 
 // createConnection method will automatically read connection options from the ormconfig file or environment variables

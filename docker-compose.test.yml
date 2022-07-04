@@ -20,6 +20,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_HOST: pg
       POSTGRES_PORT: 5432
+      JWT_TOKEN: Hnn9DYrQJ5apEDHp
+      URL: https://portal-empleo-ccisj.test.softtero.com/
+      ADMIN: bolsatrabajo.ccisj@gmail.com
+      SMTP_GMAIL_MAIL: bolsatrabajo.ccisj@gmail.com
+      SMTP_GMAIL_PASS: qroafpfvccfxwale
+      ADMIN_MAIL: bolsatrabajo.ccisj@gmail.com
+      ADMIN_PASS: 12345
     deploy:
       labels:
         - "traefik.enable=true"
