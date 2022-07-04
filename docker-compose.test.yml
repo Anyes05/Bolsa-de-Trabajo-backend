@@ -17,7 +17,7 @@ services:
       TYPEORM_ENTITIES: build/models/*.js 
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root
+      POSTGRES_PASSWORD: postgres
       POSTGRES_HOST: pg
       POSTGRES_PORT: 5432
     deploy:
