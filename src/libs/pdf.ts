@@ -54,8 +54,8 @@ export const templatePDF = async (host: string, data: Postulante): Promise<strin
                                 </div>
                                 <div class="col">
                                     <div class="col-12 col-md-6 mb-3"><strong>Sexo:</strong> ${data.sexo}</div>
-                                    <div class="col-12 col-md-6 mb-3"><strong>Segundo Nombre:</strong> ${data.segundoNombre}</div>
-                                    <div class="col-12 col-md-6 mb-3"><strong>Segundo Apellido:</strong> ${data.segundoApellido}</div>
+                                    <div class="col-12 col-md-6 mb-3"><strong>Segundo Nombre:</strong> ${data.segundoNombre ?? '-'}</div>
+                                    <div class="col-12 col-md-6 mb-3"><strong>Segundo Apellido:</strong> ${data.segundoApellido?? '-'}</div>
                                 </div>
 
                             </div>
@@ -72,8 +72,8 @@ export const templatePDF = async (host: string, data: Postulante): Promise<strin
                     <div class="row">
                         <div class="col">
                             <div class="col-12 mb-2"><strong>País:</strong> ${data.pais.nombre}</div>
-                            <div class="col-12 mb-2"><strong>Departamento:</strong> ${data.localidad?.departamento.nombre}</div>
-                            <div class="col-12 mb-2"><strong>Localidad:</strong> ${data.localidad?.nombre}</div>
+                            <div class="col-12 mb-2"><strong>Departamento:</strong> ${data.localidad?.departamento.nombre?? '-'}</div>
+                            <div class="col-12 mb-2"><strong>Localidad:</strong> ${data.localidad?.nombre?? '-'}</div>
 
                         </div>
                         <div class="col">
