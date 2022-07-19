@@ -1,10 +1,10 @@
-import { ConnectionOptions, createConnections, getConnection } from "typeorm";
+import { ConnectionOptions, createConnection, createConnections, getConnection } from "typeorm";
 import { startUp } from "./libs/startUp";
 
 /* ----- DataBase Connection ----- */
 require('dotenv').config()
 
-const connectionConfig: ConnectionOptions[] = [{
+const connectionConfig: ConnectionOptions = {
   name: "default",
   type: "postgres",
   host: process.env.POSTGRES_HOST,
@@ -17,14 +17,16 @@ const connectionConfig: ConnectionOptions[] = [{
   ],
   logging: false,
   synchronize: true,
-  ssl: true
-}]
+  ssl: {
+    ca: process.env.SSL_CERT_PG
+  }
+}
 
 // createConnection method will automatically read connection options from the ormconfig file or environment variables
 export const connection = {
   async create(options?: ConnectionOptions[]) {
 
-    await createConnections(connectionConfig).then(async () => {
+    await createConnection(connectionConfig).then(async () => {
       await startUp();
 
       console.info("DB is connected...")
