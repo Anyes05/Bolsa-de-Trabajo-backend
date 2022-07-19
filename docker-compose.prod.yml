@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  jee:
+  node:
     image: $CI_REGISTRY_IMAGE/$CI_ENVIRONMENT_SLUG:$VERSION
     networks:
       - traefik-public
@@ -28,7 +28,7 @@ services:
         - "traefik.http.routers.${APP_NAME}.middlewares=${APP_NAME}-redirect"
         - "traefik.http.middlewares.${APP_NAME}-redirect.redirectscheme.scheme=https"
         - "traefik.constraint-label=traefik-public"
-      replicas: 2
+      replicas: 1
       placement:
         constraints:
           - node.platform.os == linux
