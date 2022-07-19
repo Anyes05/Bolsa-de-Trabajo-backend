@@ -39,7 +39,15 @@ services:
         limits:
           cpus: '1'
           memory: 1024M
+    volumes:
+      - ccisj-empleo-data:/app/uploads
 
 networks:
   traefik-public:
     external: true
+
+volumes:
+  ccisj-empleo-data:
+    driver: nfs
+    driver_opts:
+      share: 10.136.160.56:/mnt/backend-data/ccisj-empleo
