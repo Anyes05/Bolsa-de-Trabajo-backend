@@ -19,7 +19,7 @@ const connectionConfig: ConnectionOptions = {
   synchronize: true,
   ssl: {
     rejectUnauthorized: false,
-    ca: process.env.SSL_CERT_PG
+    // ca: process.env.SSL_CERT_PG
   }
 }
 
