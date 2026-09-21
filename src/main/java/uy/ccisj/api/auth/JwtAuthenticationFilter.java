@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String header = request.getHeader("Authorization");
-        // Traza enfocada en 403: permite distinguir token ausente, invalido o usuario inactivo.
+        /// Traza enfocada en 403: permite distinguir token ausente, invalido o usuario inactivo.
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             if (!jwtService.isValid(token)) {
