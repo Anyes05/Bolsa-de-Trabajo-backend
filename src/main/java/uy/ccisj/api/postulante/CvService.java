@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class CvService {
     private final PostulanteRepository postulanteRepository;
     private final CvRepository cvRepository;
     private final S3StorageService storageService;
+    private final JdbcTemplate jdbcTemplate;
     private final int maxFileSizeMb;
     private final int maxCvsPerPostulante;
     private final int presignedMinutes;
@@ -33,6 +35,7 @@ public class CvService {
             PostulanteRepository postulanteRepository,
             CvRepository cvRepository,
             S3StorageService storageService,
+            JdbcTemplate jdbcTemplate,
             @Value("${app.storage.max-file-size-mb:10}") int maxFileSizeMb,
             @Value("${app.storage.max-cvs-per-postulante:5}") int maxCvsPerPostulante,
             @Value("${app.storage.presigned-minutes:15}") int presignedMinutes,
@@ -40,6 +43,7 @@ public class CvService {
         this.postulanteRepository = postulanteRepository;
         this.cvRepository = cvRepository;
         this.storageService = storageService;
+        this.jdbcTemplate = jdbcTemplate;
         this.maxFileSizeMb = maxFileSizeMb;
         this.maxCvsPerPostulante = maxCvsPerPostulante;
         this.presignedMinutes = presignedMinutes;
@@ -139,9 +143,31 @@ public class CvService {
     }
 
     private Postulante requirePostulanteByEmail(String email) {
-        return postulanteRepository.findByUsuarioEmailIgnoreCase(email)
+        var byRepository = postulanteRepository.findByUsuarioEmailIgnoreCase(email);
+        if (byRepository.isPresent()) {
+            return byRepository.get();
+        }
+
+        // Fallback defensivo para entornos con diferencias de mapeo/JPA en runtime.
+        Long postulanteId = jdbcTemplate.query(
+            """
+            SELECT p.id
+              FROM postulantes p
+              JOIN usuarios u ON u.id = p.usuario_id
+             WHERE lower(u.email) = lower(?)
+             LIMIT 1
+            """,
+            rs -> rs.next() ? rs.getLong(1) : null,
+            email);
+
+        if (postulanteId != null) {
+            return postulanteRepository.findById(postulanteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "La cuenta autenticada no tiene un perfil de postulante"));
+                    "La cuenta autenticada no tiene un perfil de postulante"));
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+            "La cuenta autenticada no tiene un perfil de postulante");
     }
 
     private void validateFile(MultipartFile file) {
