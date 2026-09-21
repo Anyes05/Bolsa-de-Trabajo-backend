@@ -1,14 +1,23 @@
 package uy.ccisj.api.postulante;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -16,12 +25,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.domain.EstadoCivil;
+import uy.ccisj.api.domain.Genero;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.UserRepository;
 
 @Service
 public class CvService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CvService.class);
+    private static final DateTimeFormatter[] DATE_FORMATS = new DateTimeFormatter[] {
+        DateTimeFormatter.ofPattern("d/M/uuuu"),
+        DateTimeFormatter.ofPattern("d-M-uuuu"),
+        DateTimeFormatter.ofPattern("d.M.uuuu")
+    };
+    private static final Pattern BIRTH_DATE_PATTERN = Pattern.compile(
+        "(?i)(?:fecha\\s*de\\s*nacimiento|nacimiento|f\\.?\\s*nac\\.?)[^0-9]{0,20}(\\d{1,2}[\\/\\-.]\\d{1,2}[\\/\\-.]\\d{4})");
     private static final Set<String> ALLOWED_FALLBACK = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -75,6 +93,7 @@ public class CvService {
         }
 
         validateFile(file);
+        enrichPostulanteFromPdfIfMissing(postulante, file);
 
         var allCvs = cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId());
         int nextVersion = allCvs.isEmpty() ? 1 : allCvs.getFirst().getVersion() + 1;
@@ -205,6 +224,98 @@ public class CvService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Tipo de archivo no permitido. Solo PDF o DOCX");
         }
+    }
+
+    private void enrichPostulanteFromPdfIfMissing(Postulante postulante, MultipartFile file) {
+        if (postulante.getFechaNacimiento() != null
+                && postulante.getGenero() != null
+                && postulante.getEstadoCivil() != null) {
+            return;
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.equalsIgnoreCase("application/pdf")) {
+            return;
+        }
+
+        try {
+            String text = extractPdfText(file);
+
+            if (postulante.getFechaNacimiento() == null) {
+                extractBirthDate(text).ifPresent(postulante::setFechaNacimiento);
+            }
+            if (postulante.getGenero() == null) {
+                extractGenero(text).ifPresent(postulante::setGenero);
+            }
+            if (postulante.getEstadoCivil() == null) {
+                extractEstadoCivil(text).ifPresent(postulante::setEstadoCivil);
+            }
+        } catch (Exception exception) {
+            // No bloquea el alta/carga: estos datos son opcionales y pueden quedar en null.
+            LOGGER.info("No se pudieron extraer campos opcionales desde PDF para postulanteId={}", postulante.getId());
+        }
+    }
+
+    private String extractPdfText(MultipartFile file) throws Exception {
+        try (PDDocument document = Loader.loadPDF(file.getBytes())) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            return stripper.getText(document);
+        }
+    }
+
+    private Optional<LocalDate> extractBirthDate(String text) {
+        Matcher matcher = BIRTH_DATE_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        String value = matcher.group(1).trim();
+        for (DateTimeFormatter formatter : DATE_FORMATS) {
+            try {
+                return Optional.of(LocalDate.parse(value, formatter));
+            } catch (DateTimeParseException ignored) {
+                // Intenta el siguiente formato.
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Genero> extractGenero(String text) {
+        String normalized = normalize(text);
+        if (normalized.contains("prefiero no especificar")
+                || normalized.contains("no especifica")) {
+            return Optional.of(Genero.PREFIERO_NO_ESPECIFICAR);
+        }
+        if (normalized.contains("femenino") || normalized.contains("mujer")) {
+            return Optional.of(Genero.FEMENINO);
+        }
+        if (normalized.contains("masculino") || normalized.contains("hombre")) {
+            return Optional.of(Genero.MASCULINO);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<EstadoCivil> extractEstadoCivil(String text) {
+        String normalized = normalize(text);
+        if (normalized.contains("union libre")) {
+            return Optional.of(EstadoCivil.UNION_LIBRE);
+        }
+        if (normalized.contains("divorciado") || normalized.contains("divorciada")) {
+            return Optional.of(EstadoCivil.DIVORCIADO);
+        }
+        if (normalized.contains("viudo") || normalized.contains("viuda")) {
+            return Optional.of(EstadoCivil.VIUDO);
+        }
+        if (normalized.contains("casado") || normalized.contains("casada")) {
+            return Optional.of(EstadoCivil.CASADO);
+        }
+        if (normalized.contains("soltero") || normalized.contains("soltera")) {
+            return Optional.of(EstadoCivil.SOLTERO);
+        }
+        return Optional.empty();
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
 
     private Set<String> parseAllowedMime(String raw) {
