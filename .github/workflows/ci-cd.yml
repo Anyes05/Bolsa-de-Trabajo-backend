@@ -139,9 +139,10 @@ jobs:
           chmod 600 ~/.ssh/ccisj.pem
           ssh-keyscan -H "${EC2_HOST}" >> ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/ccisj.pem "ec2-user@${EC2_HOST}" \
-            "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' bash -s" <<'EOF'
-          set -e
+          for attempt in 1 2 3 4 5 6; do
+            if ssh -i ~/.ssh/ccisj.pem "ec2-user@${EC2_HOST}" \
+              "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' bash -s" <<'EOF'
+          set -euo pipefail
 
           ECR_REGISTRY="${IMAGE_SHA_TAG%%/*}"
           aws ecr get-login-password --region "${AWS_REGION}" | sudo docker login --username AWS --password-stdin "${ECR_REGISTRY}"
@@ -151,21 +152,31 @@ jobs:
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml up -d backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml ps backend
 
-          ok=''
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8080/api/actuator/health >/dev/null; then
-              ok='true'
-              break
+          for i in $(seq 1 60); do
+            if curl -fsS --connect-timeout 2 --max-time 4 http://127.0.0.1:8080/api/actuator/health >/dev/null; then
+              echo "Backend healthy"
+              exit 0
             fi
             sleep 3
           done
 
-          if [ -z "$ok" ]; then
-            echo "Backend health no respondió a tiempo"
-            sudo docker logs --tail 200 ccisj-backend-1 || true
-            exit 1
-          fi
+          echo "Backend health no respondió a tiempo"
+          sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml ps backend || true
+          sudo docker logs --tail 300 ccisj-backend-1 || true
+          exit 1
           EOF
+            then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 6 ]; then
+              echo "Deploy remoto falló en intento ${attempt}, reintentando en 10s..."
+              sleep 10
+            fi
+          done
+
+          echo "No se pudo completar el deploy remoto tras varios intentos"
+          exit 1
       - name: Remove runner SSH access
         if: always()
         run: |
