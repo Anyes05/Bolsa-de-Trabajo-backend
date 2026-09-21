@@ -118,6 +118,15 @@ public class CvService {
             storageService.putObject(key, file);
             return toResponse(saved);
         } catch (RuntimeException exception) {
+            LOGGER.error(
+                    "Fallo upload CV a S3 postulanteId={} cvId={} key={} fileName={} contentType={} size={}",
+                    postulante.getId(),
+                    saved.getId(),
+                    key,
+                    file.getOriginalFilename(),
+                    file.getContentType(),
+                    file.getSize(),
+                    exception);
             cvRepository.delete(saved);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "No se pudo almacenar el archivo en S3", exception);
