@@ -46,6 +46,9 @@ public class SecurityConfig {
         configuration.addAllowedHeader("Content-Type");
         configuration.addAllowedMethod("GET");
         configuration.addAllowedMethod("POST");
+        configuration.addAllowedMethod("PATCH");
+        configuration.addAllowedMethod("DELETE");
+        configuration.addAllowedMethod("PUT");
         configuration.addAllowedMethod("OPTIONS");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

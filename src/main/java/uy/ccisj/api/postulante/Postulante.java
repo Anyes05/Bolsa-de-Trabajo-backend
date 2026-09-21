@@ -61,8 +61,8 @@ public class Postulante {
     @OneToMany(mappedBy = "postulante", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PerfilLaboral> perfiles = new ArrayList<>();
 
-    @OneToOne(mappedBy = "postulante", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Cv cv;
+    @OneToMany(mappedBy = "postulante", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Cv> cvs = new ArrayList<>();
 
     @OneToMany(mappedBy = "postulante")
     private List<Postulacion> postulaciones = new ArrayList<>();
@@ -98,7 +98,6 @@ public class Postulante {
     public EstadoCivil getEstadoCivil() { return estadoCivil; }
     public void setEstadoCivil(EstadoCivil estadoCivil) { this.estadoCivil = estadoCivil; }
     public List<PerfilLaboral> getPerfiles() { return perfiles; }
-    public Cv getCv() { return cv; }
-    public void setCv(Cv cv) { this.cv = cv; }
+    public List<Cv> getCvs() { return cvs; }
     public List<Postulacion> getPostulaciones() { return postulaciones; }
 }

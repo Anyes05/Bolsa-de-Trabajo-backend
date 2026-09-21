@@ -21,6 +21,7 @@
         <flyway.version>11.10.5</flyway.version>
         <postgresql.version>42.7.3</postgresql.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <aws.sdk.version>2.31.21</aws.sdk.version>
     </properties>
 
     <dependencies>
@@ -37,6 +38,7 @@
         <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId><version>${jjwt.version}</version></dependency>
         <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-impl</artifactId><version>${jjwt.version}</version><scope>runtime</scope></dependency>
         <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-jackson</artifactId><version>${jjwt.version}</version><scope>runtime</scope></dependency>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>s3</artifactId><version>${aws.sdk.version}</version></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
     </dependencies>
 

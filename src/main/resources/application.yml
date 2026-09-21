@@ -13,6 +13,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:12MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:12MB}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -31,6 +35,13 @@ app:
     member-email: ${BOOTSTRAP_MEMBER_EMAIL:}
     member-bps: ${BOOTSTRAP_MEMBER_BPS:}
     member-password: ${BOOTSTRAP_MEMBER_PASSWORD:}
+  storage:
+    bucket: ${S3_BUCKET:}
+    region: ${AWS_REGION:us-east-1}
+    max-file-size-mb: ${S3_MAX_FILE_SIZE_MB:10}
+    max-cvs-per-postulante: ${S3_MAX_CVS_PER_POSTULANTE:5}
+    allowed-mime: ${S3_ALLOWED_MIME:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document}
+    presigned-minutes: ${S3_PRESIGNED_MINUTES:15}
 
 management:
   endpoints:
