@@ -95,8 +95,6 @@ jobs:
     needs: [test, migrate]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    outputs:
-      image_sha_tag: ${{ steps.vars.outputs.image_sha_tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
@@ -118,18 +116,6 @@ jobs:
           tags: |
             ${{ steps.vars.outputs.image_sha_tag }}
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-
-  deploy-ec2:
-    needs: deploy
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ env.AWS_REGION }}
       - name: Allow SSH from this runner
         id: sg
         run: |
@@ -142,7 +128,7 @@ jobs:
             --cidr "${RUNNER_IP}/32" || true
       - name: Deploy backend image in EC2
         env:
-          IMAGE_SHA_TAG: ${{ needs.deploy.outputs.image_sha_tag }}
+          IMAGE_SHA_TAG: ${{ steps.vars.outputs.image_sha_tag }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
@@ -164,7 +150,21 @@ jobs:
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml pull backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml up -d backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml ps backend
-          curl -fsS http://127.0.0.1:8080/api/actuator/health >/dev/null
+
+          ok=''
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/api/actuator/health >/dev/null; then
+              ok='true'
+              break
+            fi
+            sleep 3
+          done
+
+          if [ -z "$ok" ]; then
+            echo "Backend health no respondió a tiempo"
+            sudo docker logs --tail 200 ccisj-backend-1 || true
+            exit 1
+          fi
           EOF
       - name: Remove runner SSH access
         if: always()
