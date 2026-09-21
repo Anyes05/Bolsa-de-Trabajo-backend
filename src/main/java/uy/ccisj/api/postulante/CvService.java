@@ -7,6 +7,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -15,14 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.storage.S3StorageService;
+import uy.ccisj.api.user.UserRepository;
 
 @Service
 public class CvService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CvService.class);
     private static final Set<String> ALLOWED_FALLBACK = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
     private final PostulanteRepository postulanteRepository;
+    private final UserRepository userRepository;
     private final CvRepository cvRepository;
     private final S3StorageService storageService;
     private final JdbcTemplate jdbcTemplate;
@@ -33,6 +38,7 @@ public class CvService {
 
     public CvService(
             PostulanteRepository postulanteRepository,
+            UserRepository userRepository,
             CvRepository cvRepository,
             S3StorageService storageService,
             JdbcTemplate jdbcTemplate,
@@ -41,6 +47,7 @@ public class CvService {
             @Value("${app.storage.presigned-minutes:15}") int presignedMinutes,
             @Value("${app.storage.allowed-mime:}") String allowedMimeRaw) {
         this.postulanteRepository = postulanteRepository;
+        this.userRepository = userRepository;
         this.cvRepository = cvRepository;
         this.storageService = storageService;
         this.jdbcTemplate = jdbcTemplate;
@@ -143,9 +150,18 @@ public class CvService {
     }
 
     private Postulante requirePostulanteByEmail(String email) {
-        var byRepository = postulanteRepository.findByUsuarioEmailIgnoreCase(email);
-        if (byRepository.isPresent()) {
-            return byRepository.get();
+        var user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "La cuenta autenticada no tiene un perfil de postulante"));
+
+        var byUserId = postulanteRepository.findByUsuarioId(user.getId());
+        if (byUserId.isPresent()) {
+            return byUserId.get();
+        }
+
+        var byEmail = postulanteRepository.findByUsuarioEmailIgnoreCase(email);
+        if (byEmail.isPresent()) {
+            return byEmail.get();
         }
 
         // Fallback defensivo para entornos con diferencias de mapeo/JPA en runtime.
@@ -154,17 +170,20 @@ public class CvService {
             SELECT p.id
               FROM postulantes p
               JOIN usuarios u ON u.id = p.usuario_id
-             WHERE lower(u.email) = lower(?)
+             WHERE u.id = ?
              LIMIT 1
             """,
             rs -> rs.next() ? rs.getLong(1) : null,
-            email);
+            user.getId());
 
         if (postulanteId != null) {
             return postulanteRepository.findById(postulanteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "La cuenta autenticada no tiene un perfil de postulante"));
         }
+
+        LOGGER.warn("No se pudo resolver postulante para email={} userId={} role={}",
+            email, user.getId(), user.getRole());
 
         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
             "La cuenta autenticada no tiene un perfil de postulante");

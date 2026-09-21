@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PostulanteRepository extends JpaRepository<Postulante, Long> {
     Optional<Postulante> findByUsuarioEmailIgnoreCase(String email);
+    Optional<Postulante> findByUsuarioId(Long usuarioId);
 }
