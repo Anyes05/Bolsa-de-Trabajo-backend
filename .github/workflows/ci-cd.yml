@@ -83,7 +83,9 @@ jobs:
             "-Dflyway.url=jdbc:postgresql://127.0.0.1:5433/${RDS_DB}?sslmode=require" \
             "-Dflyway.user=${FLYWAY_USER}" \
             "-Dflyway.password=${FLYWAY_PASSWORD}" \
-            -Dflyway.connectRetries=10
+            -Dflyway.connectRetries=10 \
+            -Dflyway.baselineOnMigrate=true \
+            -Dflyway.baselineVersion=1
       - name: Remove runner SSH access
         if: always()
         run: |
