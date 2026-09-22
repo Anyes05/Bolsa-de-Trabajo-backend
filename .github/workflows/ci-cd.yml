@@ -138,6 +138,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           mkdir -p ~/.ssh
@@ -153,7 +154,21 @@ jobs:
           ECR_REGISTRY="${IMAGE_SHA_TAG%%/*}"
           aws ecr get-login-password --region "${AWS_REGION}" | sudo docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
+          # Sincroniza credenciales/runtime de backend en cada deploy para evitar tokens vencidos.
           sudo sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${IMAGE_SHA_TAG}|" /opt/ccisj/runtime.env
+          sudo sed -i "s|^AWS_ACCESS_KEY_ID=.*|AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}|" /opt/ccisj/runtime.env
+          sudo sed -i "s|^AWS_SECRET_ACCESS_KEY=.*|AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}|" /opt/ccisj/runtime.env
+          sudo sed -i "s|^AWS_SESSION_TOKEN=.*|AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}|" /opt/ccisj/runtime.env
+          sudo sed -i "s|^AWS_REGION=.*|AWS_REGION=${AWS_REGION}|" /opt/ccisj/runtime.env
+          sudo sed -i "s|^S3_BUCKET=.*|S3_BUCKET=${S3_BUCKET}|" /opt/ccisj/runtime.env
+
+          # Si alguna clave no existe aún en runtime.env, la agrega.
+          sudo grep -q '^AWS_ACCESS_KEY_ID=' /opt/ccisj/runtime.env || echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+          sudo grep -q '^AWS_SECRET_ACCESS_KEY=' /opt/ccisj/runtime.env || echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+          sudo grep -q '^AWS_SESSION_TOKEN=' /opt/ccisj/runtime.env || echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+          sudo grep -q '^AWS_REGION=' /opt/ccisj/runtime.env || echo "AWS_REGION=${AWS_REGION}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+          sudo grep -q '^S3_BUCKET=' /opt/ccisj/runtime.env || echo "S3_BUCKET=${S3_BUCKET}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml pull backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml up -d backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml ps backend
