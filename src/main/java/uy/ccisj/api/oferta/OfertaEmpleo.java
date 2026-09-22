@@ -28,7 +28,7 @@ public class OfertaEmpleo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    //
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "socio_id", nullable = false)
     private Socio socio;
