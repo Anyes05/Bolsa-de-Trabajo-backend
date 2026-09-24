@@ -1,6 +1,7 @@
 package uy.ccisj.api.auth;
 
 import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -33,6 +34,10 @@ public class AuthController {
 
     @GetMapping("/me")
     public Map<String, Object> currentUser(Authentication authentication) {
-        return Map.of("email", authentication.getName(), "roles", authentication.getAuthorities());
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("email", authentication.getName());
+        response.put("roles", authentication.getAuthorities());
+        response.put("fullName", authService.applicantFullName(authentication.getName()));
+        return response;
     }
 }

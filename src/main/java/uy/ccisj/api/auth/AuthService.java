@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.postulante.PostulanteRepository;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -17,12 +18,19 @@ import uy.ccisj.api.user.UserRepository;
 @Service
 public class AuthService {
     private final UserRepository userRepository;
+    private final PostulanteRepository postulanteRepository;
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(
+            UserRepository userRepository,
+            PostulanteRepository postulanteRepository,
+            JdbcTemplate jdbcTemplate,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService) {
         this.userRepository = userRepository;
+        this.postulanteRepository = postulanteRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -36,7 +44,7 @@ public class AuthService {
                 .filter(candidate -> candidate.getRole() == request.role())
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas"));
-        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole());
+        return authResponse(user);
     }
 
     @Transactional
@@ -63,8 +71,27 @@ public class AuthService {
         sectorIds.forEach(sectorId -> jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
 
         User user = userRepository.findById(userId).orElseThrow();
-        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole());
+        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), request.fullName());
     }
+
+    private AuthResponse authResponse(User user) {
+        String fullName = applicantFullName(user);
+        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), fullName);
+    }
+
+        public String applicantFullName(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+            .map(this::applicantFullName)
+            .orElse(null);
+        }
+
+        private String applicantFullName(User user) {
+        return user.getRole() == Role.POSTULANTE
+            ? postulanteRepository.findByUsuarioId(user.getId())
+                .map(postulante -> postulante.getNombreCompleto())
+                .orElse(null)
+            : null;
+        }
 
     private Long insertAndReturnId(String sql, Object... values) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
