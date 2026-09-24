@@ -31,6 +31,10 @@ public class Cv {
     @JoinColumn(name = "postulante_id", nullable = false)
     private Postulante postulante;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perfil_laboral_id")
+    private PerfilLaboral perfilLaboral;
+
     @Column(columnDefinition = "TEXT")
     private String resumen;
 
@@ -81,6 +85,8 @@ public class Cv {
     public Long getId() { return id; }
     public Postulante getPostulante() { return postulante; }
     public void setPostulante(Postulante postulante) { this.postulante = postulante; }
+    public PerfilLaboral getPerfilLaboral() { return perfilLaboral; }
+    public void setPerfilLaboral(PerfilLaboral perfilLaboral) { this.perfilLaboral = perfilLaboral; }
     public String getResumen() { return resumen; }
     public void setResumen(String resumen) { this.resumen = resumen; }
     public String getRutaArchivoCv() { return rutaArchivoCv; }

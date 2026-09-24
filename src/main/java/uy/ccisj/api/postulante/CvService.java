@@ -84,7 +84,7 @@ public class CvService {
     }
 
     @Transactional
-    public CvResponse uploadCv(String userEmail, MultipartFile file, String resumen) {
+    public CvResponse uploadCv(String userEmail, MultipartFile file, String resumen, Long perfilLaboralId) {
         var postulante = requirePostulanteByEmail(userEmail);
 
         if (cvRepository.countByPostulanteId(postulante.getId()) >= maxCvsPerPostulante) {
@@ -98,8 +98,11 @@ public class CvService {
         var allCvs = cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId());
         int nextVersion = allCvs.isEmpty() ? 1 : allCvs.getFirst().getVersion() + 1;
         allCvs.forEach(cv -> cv.setActivo(false));
+        // La base admite una sola version activa: confirma el cambio antes del nuevo INSERT.
+        cvRepository.flush();
 
         var cv = new Cv(postulante);
+        cv.setPerfilLaboral(resolvePerfil(postulante.getId(), perfilLaboralId));
         cv.setResumen(resumen);
         cv.setVersion(nextVersion);
         cv.setActivo(true);
@@ -216,6 +219,28 @@ public class CvService {
         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
             "La cuenta autenticada no tiene un perfil de postulante");
     }
+
+        private PerfilLaboral resolvePerfil(Long postulanteId, Long perfilLaboralId) {
+        Long resolvedId = perfilLaboralId != null ? perfilLaboralId : jdbcTemplate.query(
+            "SELECT id FROM perfiles_laborales WHERE postulante_id = ? ORDER BY id LIMIT 1",
+            rs -> rs.next() ? rs.getLong(1) : null,
+            postulanteId);
+        if (resolvedId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes crear un perfil profesional antes de subir un CV");
+        }
+        Integer matches = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM perfiles_laborales WHERE id = ? AND postulante_id = ?",
+            Integer.class, resolvedId, postulanteId);
+        if (matches == null || matches == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado");
+        }
+        return jdbcTemplate.query(
+            "SELECT id FROM perfiles_laborales WHERE id = ?",
+            rs -> rs.next() ? postulanteRepository.findById(postulanteId)
+                .flatMap(postulante -> postulante.getPerfiles().stream().filter(perfil -> perfil.getId().equals(resolvedId)).findFirst())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado")) : null,
+            resolvedId);
+        }
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -353,6 +378,7 @@ public class CvService {
         String downloadUrl = storageService.presignedDownloadUrl(cv.getRutaArchivoCv(), Duration.ofMinutes(presignedMinutes));
         return new CvResponse(
                 cv.getId(),
+            cv.getPerfilLaboral() == null ? null : cv.getPerfilLaboral().getId(),
                 cv.getVersion(),
                 cv.getResumen(),
                 cv.getNombreArchivo(),

@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 
 public record CvResponse(
         Long id,
+        Long perfilLaboralId,
         Integer version,
         String resumen,
         String nombreArchivo,

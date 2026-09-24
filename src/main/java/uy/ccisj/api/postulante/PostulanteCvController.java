@@ -33,8 +33,9 @@ public class PostulanteCvController {
     public CvResponse uploadCv(
             Authentication authentication,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "resumen", required = false) String resumen) {
-        return cvService.uploadCv(authentication.getName(), file, resumen);
+            @RequestParam(value = "resumen", required = false) String resumen,
+            @RequestParam(value = "perfilLaboralId", required = false) Long perfilLaboralId) {
+        return cvService.uploadCv(authentication.getName(), file, resumen, perfilLaboralId);
     }
 
     @PatchMapping("/{cvId}/activar")
