@@ -38,6 +38,7 @@ public class AuthController {
         response.put("email", authentication.getName());
         response.put("roles", authentication.getAuthorities());
         response.put("fullName", authService.applicantFullName(authentication.getName()));
+        response.put("esDirectivo", authService.socioEsDirectivo(authentication.getName()));
         return response;
     }
 }

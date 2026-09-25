@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.postulante.PostulanteRepository;
+import uy.ccisj.api.socio.Socio;
+import uy.ccisj.api.socio.SocioRepository;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -20,6 +22,7 @@ import uy.ccisj.api.user.UserRepository;
 public class AuthService {
     private final UserRepository userRepository;
     private final PostulanteRepository postulanteRepository;
+    private final SocioRepository socioRepository;
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -27,11 +30,13 @@ public class AuthService {
     public AuthService(
             UserRepository userRepository,
             PostulanteRepository postulanteRepository,
+            SocioRepository socioRepository,
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             JwtService jwtService) {
         this.userRepository = userRepository;
         this.postulanteRepository = postulanteRepository;
+        this.socioRepository = socioRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -48,9 +53,13 @@ public class AuthService {
 
     private Optional<User> resolveLoginUser(LoginRequest request) {
         if (request.role() == Role.SOCIO) {
-            return userRepository.findByBps(request.identifier());
+            return userRepository.findByBps(normalizeBps(request.identifier()));
         }
         return userRepository.findByEmailIgnoreCase(request.identifier());
+    }
+
+    private String normalizeBps(String identifier) {
+        return identifier == null ? "" : identifier.replaceAll("\\D", "");
     }
 
     @Transactional
@@ -77,21 +86,31 @@ public class AuthService {
         sectorIds.forEach(sectorId -> jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
 
         User user = userRepository.findById(userId).orElseThrow();
-        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), request.fullName());
+        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), request.fullName(), null);
     }
 
     private AuthResponse authResponse(User user) {
-        String fullName = applicantFullName(user);
-        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), fullName);
+        return new AuthResponse(
+                jwtService.generate(user),
+                user.getEmail(),
+                user.getRole(),
+                applicantFullName(user),
+                socioEsDirectivo(user));
     }
 
-        public String applicantFullName(String email) {
+    public String applicantFullName(String email) {
         return userRepository.findByEmailIgnoreCase(email)
             .map(this::applicantFullName)
             .orElse(null);
-        }
+    }
 
-        private String applicantFullName(User user) {
+    public Boolean socioEsDirectivo(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+            .map(this::socioEsDirectivo)
+            .orElse(null);
+    }
+
+    private String applicantFullName(User user) {
         if (user.getRole() == Role.POSTULANTE) {
             return postulanteRepository.findByUsuarioId(user.getId())
                 .map(postulante -> postulante.getNombreCompleto())
@@ -100,8 +119,22 @@ public class AuthService {
         if (user.getRole() == Role.ADMIN) {
             return "Administrador";
         }
-        return null;
+        if (user.getRole() == Role.SOCIO) {
+            return socioRepository.findByUsuarioId(user.getId())
+                .map(Socio::getRazonSocial)
+                .orElse(null);
         }
+        return null;
+    }
+
+    private Boolean socioEsDirectivo(User user) {
+        if (user.getRole() != Role.SOCIO) {
+            return null;
+        }
+        return socioRepository.findByUsuarioId(user.getId())
+            .map(Socio::isEsDirectivo)
+            .orElse(false);
+    }
 
     private Long insertAndReturnId(String sql, Object... values) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
