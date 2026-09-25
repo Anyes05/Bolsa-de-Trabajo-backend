@@ -2,6 +2,7 @@ package uy.ccisj.api.auth;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -37,14 +38,19 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        User user = (request.role() == Role.SOCIO
-                ? userRepository.findByBps(request.identifier())
-                : userRepository.findByEmailIgnoreCase(request.identifier()))
+        User user = resolveLoginUser(request)
                 .filter(User::isActivo)
                 .filter(candidate -> candidate.getRole() == request.role())
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas"));
         return authResponse(user);
+    }
+
+    private Optional<User> resolveLoginUser(LoginRequest request) {
+        if (request.role() == Role.SOCIO) {
+            return userRepository.findByBps(request.identifier());
+        }
+        return userRepository.findByEmailIgnoreCase(request.identifier());
     }
 
     @Transactional
@@ -86,11 +92,15 @@ public class AuthService {
         }
 
         private String applicantFullName(User user) {
-        return user.getRole() == Role.POSTULANTE
-            ? postulanteRepository.findByUsuarioId(user.getId())
+        if (user.getRole() == Role.POSTULANTE) {
+            return postulanteRepository.findByUsuarioId(user.getId())
                 .map(postulante -> postulante.getNombreCompleto())
-                .orElse(null)
-            : null;
+                .orElse(null);
+        }
+        if (user.getRole() == Role.ADMIN) {
+            return "Administrador";
+        }
+        return null;
         }
 
     private Long insertAndReturnId(String sql, Object... values) {
