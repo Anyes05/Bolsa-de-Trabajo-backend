@@ -60,7 +60,7 @@ public class SocioService {
     public SocioResponseDTO createSocio(SocioCreateDTO dto) {
         String bps = normalizeBps(dto.bps());
         if (bps.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El numero de BPS es obligatorio");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El número de BPS es obligatorio");
         }
         String email = trimToNull(dto.email());
         String rut = requireText(dto.rut(), "El RUT es obligatorio");
@@ -154,7 +154,7 @@ public class SocioService {
     private RubroEmpleo findRubro(Long rubroId) {
         return rubroEmpleoRepository.findById(rubroId)
                 .filter(RubroEmpleo::isActivo)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rubro no es valido"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rubro no es válido"));
     }
 
     private SocioResponseDTO toResponse(Socio socio) {
