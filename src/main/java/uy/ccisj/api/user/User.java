@@ -49,13 +49,23 @@ public class User {
     protected User() {
     }
 
+    public User(String email, String bps, String passwordHash, Role role) {
+        this.email = email;
+        this.bps = bps;
+        this.passwordHash = passwordHash;
+        this.role = role;
+        this.activo = true;
+    }
+
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getBps() { return bps; }
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public boolean isActivo() { return activo; }
+    public void setActivo(boolean activo) { this.activo = activo; }
     public OffsetDateTime getFechaBaja() { return fechaBaja; }
+    public void setFechaBaja(OffsetDateTime fechaBaja) { this.fechaBaja = fechaBaja; }
     public Postulante getPostulante() { return postulante; }
     public Socio getSocio() { return socio; }
 }

@@ -66,6 +66,9 @@ public class Socio {
     @Column(name = "fecha_alta", nullable = false)
     private LocalDate fechaAlta = LocalDate.now();
 
+    @Column(name = "fecha_aniversario")
+    private LocalDate fechaAniversario;
+
     @OneToMany(mappedBy = "socio", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Cuota> cuotas = new ArrayList<>();
 
@@ -103,6 +106,8 @@ public class Socio {
     public void setEsDirectivo(boolean esDirectivo) { this.esDirectivo = esDirectivo; }
     public LocalDate getFechaAlta() { return fechaAlta; }
     public void setFechaAlta(LocalDate fechaAlta) { this.fechaAlta = fechaAlta; }
+    public LocalDate getFechaAniversario() { return fechaAniversario; }
+    public void setFechaAniversario(LocalDate fechaAniversario) { this.fechaAniversario = fechaAniversario; }
     public List<Cuota> getCuotas() { return cuotas; }
     public List<OfertaEmpleo> getOfertas() { return ofertas; }
 }
