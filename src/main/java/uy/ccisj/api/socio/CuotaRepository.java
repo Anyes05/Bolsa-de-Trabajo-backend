@@ -10,4 +10,8 @@ public interface CuotaRepository extends JpaRepository<Cuota, Long> {
 
     @EntityGraph(attributePaths = {"socio", "socio.usuario", "socio.rubro", "pago"})
     List<Cuota> findBySocioIdOrderByPeriodoDesc(Long socioId);
+
+    boolean existsBySocioIdAndPeriodo(Long socioId, java.time.LocalDate periodo);
+
+    boolean existsByTarifaId(Long tarifaId);
 }
