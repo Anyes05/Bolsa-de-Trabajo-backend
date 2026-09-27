@@ -11,7 +11,7 @@ ALTER TABLE tarifas
     ALTER COLUMN anio SET NOT NULL,
     ALTER COLUMN dia_vencimiento SET NOT NULL,
     ADD CONSTRAINT tarifas_anio_check CHECK (anio BETWEEN 2000 AND 9999),
-    ADD CONSTRAINT tarifas_dia_vencimiento_check CHECK (dia_vencimiento BETWEEN 1 AND 28);
+    ADD CONSTRAINT tarifas_dia_vencimiento_check CHECK (dia_vencimiento BETWEEN 1 AND 31);
 
 ALTER TABLE tarifas
     DROP CONSTRAINT IF EXISTS tarifas_periodo_key,

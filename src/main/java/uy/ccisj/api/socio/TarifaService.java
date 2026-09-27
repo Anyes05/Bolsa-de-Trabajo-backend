@@ -69,7 +69,8 @@ public class TarifaService {
     }
 
     private Cuota crearCuota(Socio socio, Tarifa tarifa, LocalDate periodo) {
-        Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), periodo.withDayOfMonth(tarifa.getDiaVencimiento()));
+        int diaVencimiento = Math.min(tarifa.getDiaVencimiento(), periodo.lengthOfMonth());
+        Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), periodo.withDayOfMonth(diaVencimiento));
         cuota.setTarifa(tarifa);
         return cuota;
     }

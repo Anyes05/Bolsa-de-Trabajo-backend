@@ -9,5 +9,5 @@ import jakarta.validation.constraints.NotNull;
 public record GuardarTarifaDTO(
         @Min(2000) @Max(9999) int anio,
         @NotNull @DecimalMin(value = "0.01") BigDecimal montoBase,
-        @Min(1) @Max(28) int diaVencimiento) {
+        @Min(1) @Max(31) int diaVencimiento) {
 }
