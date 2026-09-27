@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import uy.ccisj.api.domain.MetodoPago;
 
 @Entity
 @Table(name = "pagos")
@@ -39,16 +41,21 @@ public class Pago {
     @Column(name = "modificado_admin", nullable = false)
     private boolean modificadoAdmin;
 
+    @Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "metodo_pago", nullable = false, length = 20)
+    private MetodoPago metodoPago = MetodoPago.EFECTIVO;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
     protected Pago() {
     }
 
-    public Pago(Cuota cuota, BigDecimal montoCobrado, LocalDate fechaEmision) {
+    public Pago(Cuota cuota, BigDecimal montoCobrado, LocalDate fechaEmision, MetodoPago metodoPago) {
         this.cuota = cuota;
         this.montoCobrado = montoCobrado;
         this.fechaEmision = fechaEmision;
+        this.metodoPago = metodoPago;
     }
 
     public Long getId() { return id; }
@@ -64,5 +71,7 @@ public class Pago {
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
     public boolean isModificadoAdmin() { return modificadoAdmin; }
     public void setModificadoAdmin(boolean modificadoAdmin) { this.modificadoAdmin = modificadoAdmin; }
+    public MetodoPago getMetodoPago() { return metodoPago; }
+    public void setMetodoPago(MetodoPago metodoPago) { this.metodoPago = metodoPago; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
 }

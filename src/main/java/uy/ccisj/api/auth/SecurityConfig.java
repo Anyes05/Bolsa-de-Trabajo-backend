@@ -35,6 +35,7 @@ public class SecurityConfig {
                     .requestMatchers("/actuator/health", "/auth/login", "/auth/register", "/sectors", "/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/admin/socios", "/admin/socios/**").hasRole("ADMIN")
+                    .requestMatchers("/admin/caja", "/admin/caja/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .exceptionHandling(exceptions -> exceptions
             .authenticationEntryPoint((request, response, authException) -> {
