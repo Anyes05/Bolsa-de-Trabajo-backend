@@ -1,12 +1,13 @@
 package uy.ccisj.api.socio.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public record GuardarTarifaDTO(
-        @NotNull LocalDate periodo,
+        @Min(2000) @Max(9999) int anio,
         @NotNull @DecimalMin(value = "0.01") BigDecimal montoBase,
-        @NotNull LocalDate fechaVencimiento) {
+        @Min(1) @Max(28) int diaVencimiento) {
 }

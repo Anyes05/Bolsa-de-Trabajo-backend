@@ -27,22 +27,21 @@ public class TarifaService {
 
     @Transactional(readOnly = true)
     public List<TarifaDTO> listar() {
-        return tarifaRepository.findAllByOrderByPeriodoDesc().stream().map(this::toDto).toList();
+        return tarifaRepository.findAllByOrderByAnioDesc().stream().map(this::toDto).toList();
     }
 
     @Transactional
     public TarifaDTO guardar(GuardarTarifaDTO dto) {
-        LocalDate periodo = primerDiaDelMes(dto.periodo());
-        Tarifa tarifa = tarifaRepository.findByPeriodo(periodo).orElse(null);
+        Tarifa tarifa = tarifaRepository.findByAnio(dto.anio()).orElse(null);
         if (tarifa != null && cuotaRepository.existsByTarifaId(tarifa.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "La tarifa no se puede modificar porque ya tiene cuotas emitidas");
         }
         if (tarifa == null) {
-            tarifa = new Tarifa(periodo, dto.montoBase(), dto.fechaVencimiento());
+            tarifa = new Tarifa(dto.anio(), dto.montoBase(), dto.diaVencimiento());
         } else {
             tarifa.setMontoBase(dto.montoBase());
-            tarifa.setFechaVencimiento(dto.fechaVencimiento());
+            tarifa.setDiaVencimiento(dto.diaVencimiento());
         }
         return toDto(tarifaRepository.save(tarifa));
     }
@@ -50,15 +49,15 @@ public class TarifaService {
     @Transactional
     public FacturacionGeneradaDTO generarFacturacion(GenerarFacturacionDTO dto) {
         LocalDate periodo = primerDiaDelMes(dto.periodo());
-        Tarifa tarifa = tarifaRepository.findByPeriodo(periodo)
+        Tarifa tarifa = tarifaRepository.findByAnio(periodo.getYear())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Primero debe definir la tarifa para el período seleccionado"));
+                "Primero debe definir la tarifa anual para el año seleccionado"));
         List<Socio> sociosActivos = socioRepository.findAllByOrderByRazonSocialAsc().stream()
                 .filter(socio -> socio.getEstadoMorosidad() != EstadoMorosidad.INACTIVO)
                 .toList();
         List<Cuota> cuotasNuevas = sociosActivos.stream()
                 .filter(socio -> !cuotaRepository.existsBySocioIdAndPeriodo(socio.getId(), periodo))
-                .map(socio -> crearCuota(socio, tarifa))
+            .map(socio -> crearCuota(socio, tarifa, periodo))
                 .toList();
 
         cuotaRepository.saveAll(cuotasNuevas);
@@ -69,8 +68,8 @@ public class TarifaService {
                 sociosActivos.size() - cuotasNuevas.size());
     }
 
-    private Cuota crearCuota(Socio socio, Tarifa tarifa) {
-        Cuota cuota = new Cuota(socio, tarifa.getPeriodo(), tarifa.getMontoBase(), tarifa.getFechaVencimiento());
+    private Cuota crearCuota(Socio socio, Tarifa tarifa, LocalDate periodo) {
+        Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), periodo.withDayOfMonth(tarifa.getDiaVencimiento()));
         cuota.setTarifa(tarifa);
         return cuota;
     }
@@ -87,7 +86,7 @@ public class TarifaService {
     }
 
     private TarifaDTO toDto(Tarifa tarifa) {
-        return new TarifaDTO(tarifa.getId(), tarifa.getPeriodo(), tarifa.getMontoBase(), tarifa.getFechaVencimiento(), tarifa.getCreatedAt());
+        return new TarifaDTO(tarifa.getId(), tarifa.getAnio(), tarifa.getMontoBase(), tarifa.getDiaVencimiento(), tarifa.getCreatedAt());
     }
 
     private LocalDate primerDiaDelMes(LocalDate fecha) {
