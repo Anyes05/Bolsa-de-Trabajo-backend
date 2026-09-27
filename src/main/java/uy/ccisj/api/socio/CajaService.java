@@ -43,7 +43,7 @@ public class CajaService {
         return new CajaResumenDTO(
                 socios.size(),
                 socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.AL_DIA).count(),
-                socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.DEUDA_A_VENCER || socio.getEstadoMorosidad() == EstadoMorosidad.DEUDA_VENCIDA).count(),
+                socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.DEUDA_2_MESES || socio.getEstadoMorosidad() == EstadoMorosidad.MOROSO).count(),
                 socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO).count(),
                 cuentas);
     }
@@ -67,7 +67,7 @@ public class CajaService {
     public CuentaCajaDTO registrarCobro(RegistrarCobroDTO dto) {
         Cuota cuota = cuotaRepository.findById(dto.cuotaId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "La cuota no existe"));
-        if (cuota.getEstado() == EstadoCuota.PAGADA || cuota.getEstado() == EstadoCuota.ANULADA || cuota.getPago() != null) {
+        if (cuota.getEstado() == EstadoCuota.PAGADO || cuota.getEstado() == EstadoCuota.ANULADA || cuota.getPago() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La cuota ya no admite cobros");
         }
         if (cuota.getSocio().getEstadoMorosidad() == EstadoMorosidad.INACTIVO) {
@@ -80,7 +80,7 @@ public class CajaService {
         pago.setModificadoAdmin(true);
         pagoRepository.save(pago);
         cuota.setPago(pago);
-        cuota.setEstado(EstadoCuota.PAGADA);
+        cuota.setEstado(EstadoCuota.PAGADO);
         actualizarMorosidad(cuota.getSocio());
         return toCuenta(cuota.getSocio(), cuota);
     }
@@ -88,14 +88,15 @@ public class CajaService {
     private void actualizarMorosidad(Socio socio) {
         if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO) return;
         List<Cuota> pendientes = cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId()).stream()
-                .filter(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE || cuota.getEstado() == EstadoCuota.FORZOSO)
+                .filter(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE)
                 .toList();
         if (pendientes.isEmpty()) {
             socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
             return;
         }
-        boolean vencida = pendientes.stream().anyMatch(cuota -> cuota.getFechaVencimiento().isBefore(LocalDate.now()));
-        socio.setEstadoMorosidad(vencida ? EstadoMorosidad.DEUDA_VENCIDA : EstadoMorosidad.DEUDA_A_VENCER);
+        boolean esMoroso = pendientes.stream()
+            .anyMatch(cuota -> cuota.getFechaVencimiento().plusMonths(2).isBefore(LocalDate.now()));
+        socio.setEstadoMorosidad(esMoroso ? EstadoMorosidad.MOROSO : EstadoMorosidad.DEUDA_2_MESES);
     }
 
     private Socio findSocio(Long socioId) {
