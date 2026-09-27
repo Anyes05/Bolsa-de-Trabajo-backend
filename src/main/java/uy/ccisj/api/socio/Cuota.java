@@ -29,6 +29,10 @@ public class Cuota {
     @JoinColumn(name = "socio_id", nullable = false)
     private Socio socio;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tarifa_id")
+    private Tarifa tarifa;
+
     @Column(nullable = false)
     private LocalDate periodo;
 
@@ -58,6 +62,8 @@ public class Cuota {
     public Long getId() { return id; }
     public Socio getSocio() { return socio; }
     public void setSocio(Socio socio) { this.socio = socio; }
+    public Tarifa getTarifa() { return tarifa; }
+    public void setTarifa(Tarifa tarifa) { this.tarifa = tarifa; }
     public LocalDate getPeriodo() { return periodo; }
     public void setPeriodo(LocalDate periodo) { this.periodo = periodo; }
     public BigDecimal getMonto() { return monto; }
