@@ -1,0 +1,3 @@
+ALTER TABLE postulantes
+    ADD COLUMN IF NOT EXISTS foto_perfil BYTEA,
+    ADD COLUMN IF NOT EXISTS foto_mime VARCHAR(100);

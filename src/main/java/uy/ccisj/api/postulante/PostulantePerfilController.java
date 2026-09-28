@@ -7,6 +7,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -71,6 +72,32 @@ public class PostulantePerfilController {
             if (inserted == 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rubro no valido: " + rubro);
             }
+        }
+        return find(perfilId, postulanteId);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public PerfilResponse create(Authentication authentication, @RequestBody PerfilRequest request) {
+        Long postulanteId = postulanteId(authentication.getName());
+        if (request.nombre() == null || request.nombre().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del perfil es obligatorio");
+        }
+        Long perfilId = jdbcTemplate.queryForObject("""
+                INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo,
+                    ultimo_empleo, descripcion_experiencia, visible)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, postulanteId, request.nombre().trim(), request.disponibilidadHoraria(),
+                request.tieneVehiculo(), nullIfBlank(request.ultimoEmpleo()),
+                nullIfBlank(request.descripcionExperiencia()), request.visible());
+        for (String rubro : request.rubros() == null ? List.<String>of() : request.rubros()) {
+            jdbcTemplate.update("""
+                    INSERT INTO perfil_rubros (perfil_id, rubro_id)
+                    SELECT ?, id FROM rubros_empleo WHERE activo = TRUE AND nombre_rubro = ?
+                    ON CONFLICT DO NOTHING
+                    """, perfilId, rubro);
         }
         return find(perfilId, postulanteId);
     }
