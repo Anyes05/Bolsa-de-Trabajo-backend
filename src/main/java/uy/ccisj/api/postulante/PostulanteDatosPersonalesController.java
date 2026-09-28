@@ -1,6 +1,7 @@
 package uy.ccisj.api.postulante;
 
 import java.util.Base64;
+import java.io.IOException;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -55,8 +56,14 @@ public class PostulanteDatosPersonalesController {
                 SELECT p.id FROM postulantes p JOIN usuarios u ON u.id = p.usuario_id WHERE u.email = ?
                 """, rs -> rs.next() ? rs.getLong(1) : null, authentication.getName());
         if (postulanteId == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Postulante no encontrado");
+                byte[] photo;
+                try {
+                    photo = file.getBytes();
+                } catch (IOException exception) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo procesar la foto", exception);
+                }
         jdbcTemplate.update("UPDATE postulantes SET foto_perfil = ?, foto_mime = ? WHERE id = ?",
-            file.getBytes(), type, postulanteId);
+                    photo, type, postulanteId);
         return find(authentication.getName());
     }
 
