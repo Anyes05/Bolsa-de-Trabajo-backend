@@ -11,6 +11,8 @@ public record MovimientoCajaDTO(
         LocalDate fechaVencimiento,
         EstadoCuota estadoCuota,
         BigDecimal montoCuota,
+        BigDecimal montoTimbre,
+        boolean timbreRecurrente,
         BigDecimal montoCobrado,
         LocalDate fechaCobro,
         MetodoPago metodoPago,

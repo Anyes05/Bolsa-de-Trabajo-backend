@@ -1,5 +1,6 @@
 package uy.ccisj.api.socio;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -74,7 +75,12 @@ public class CajaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No es posible cobrar a un socio inactivo");
         }
 
-        Pago pago = new Pago(cuota, cuota.getMonto(), LocalDate.now(), dto.metodoPago());
+        BigDecimal montoTimbre = dto.montoTimbre() == null ? cuota.getMontoTimbre() : dto.montoTimbre();
+        boolean timbreRecurrente = Boolean.TRUE.equals(dto.timbreRecurrente());
+        cuota.setMontoTimbre(montoTimbre);
+        cuota.setTimbreRecurrente(montoTimbre.signum() > 0 && timbreRecurrente);
+
+        Pago pago = new Pago(cuota, cuota.getMonto().add(montoTimbre), LocalDate.now(), dto.metodoPago());
         pago.setNroCobranzaExterno(trimToNull(dto.nroCobranzaExterno()));
         pago.setObservaciones(trimToNull(dto.observaciones()));
         pago.setModificadoAdmin(true);
@@ -115,6 +121,8 @@ public class CajaService {
                 cuota == null ? null : cuota.getId(),
                 cuota == null ? null : cuota.getEstado(),
                 cuota == null ? null : cuota.getMonto(),
+                cuota == null ? null : cuota.getMontoTimbre(),
+                cuota != null && cuota.isTimbreRecurrente(),
                 cuota == null ? null : cuota.getPeriodo(),
                 cuota == null ? null : cuota.getFechaVencimiento());
     }
@@ -123,6 +131,7 @@ public class CajaService {
         Pago pago = cuota.getPago();
         return new MovimientoCajaDTO(
                 cuota.getId(), cuota.getPeriodo(), cuota.getFechaVencimiento(), cuota.getEstado(), cuota.getMonto(),
+                cuota.getMontoTimbre(), cuota.isTimbreRecurrente(),
                 pago == null ? null : pago.getMontoCobrado(),
                 pago == null ? null : pago.getFechaEmision(),
                 pago == null ? null : pago.getMetodoPago(),

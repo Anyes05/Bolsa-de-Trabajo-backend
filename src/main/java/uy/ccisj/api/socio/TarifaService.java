@@ -72,6 +72,12 @@ public class TarifaService {
         int diaVencimiento = Math.min(tarifa.getDiaVencimiento(), periodo.lengthOfMonth());
         Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), periodo.withDayOfMonth(diaVencimiento));
         cuota.setTarifa(tarifa);
+        cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId())
+                .filter(Cuota::isTimbreRecurrente)
+                .ifPresent(cuotaAnterior -> {
+                    cuota.setMontoTimbre(cuotaAnterior.getMontoTimbre());
+                    cuota.setTimbreRecurrente(true);
+                });
         return cuota;
     }
 

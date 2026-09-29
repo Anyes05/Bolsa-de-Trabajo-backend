@@ -15,6 +15,8 @@ public record CuentaCajaDTO(
         Long cuotaId,
         EstadoCuota estadoCuota,
         BigDecimal montoCuota,
+        BigDecimal montoTimbre,
+        boolean timbreRecurrente,
         LocalDate periodo,
         LocalDate fechaVencimiento) {
 }

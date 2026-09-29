@@ -1,0 +1,4 @@
+ALTER TABLE cuotas
+    ADD COLUMN IF NOT EXISTS monto_timbre NUMERIC(12, 2) NOT NULL DEFAULT 0
+        CHECK (monto_timbre >= 0),
+    ADD COLUMN IF NOT EXISTS timbre_recurrente BOOLEAN NOT NULL DEFAULT FALSE;

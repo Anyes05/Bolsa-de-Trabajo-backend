@@ -39,6 +39,12 @@ public class Cuota {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal monto;
 
+    @Column(name = "monto_timbre", nullable = false, precision = 12, scale = 2)
+    private BigDecimal montoTimbre = BigDecimal.ZERO;
+
+    @Column(name = "timbre_recurrente", nullable = false)
+    private boolean timbreRecurrente;
+
     @Column(name = "fecha_vencimiento", nullable = false)
     private LocalDate fechaVencimiento;
 
@@ -68,6 +74,10 @@ public class Cuota {
     public void setPeriodo(LocalDate periodo) { this.periodo = periodo; }
     public BigDecimal getMonto() { return monto; }
     public void setMonto(BigDecimal monto) { this.monto = monto; }
+    public BigDecimal getMontoTimbre() { return montoTimbre; }
+    public void setMontoTimbre(BigDecimal montoTimbre) { this.montoTimbre = montoTimbre; }
+    public boolean isTimbreRecurrente() { return timbreRecurrente; }
+    public void setTimbreRecurrente(boolean timbreRecurrente) { this.timbreRecurrente = timbreRecurrente; }
     public LocalDate getFechaVencimiento() { return fechaVencimiento; }
     public void setFechaVencimiento(LocalDate fechaVencimiento) { this.fechaVencimiento = fechaVencimiento; }
     public EstadoCuota getEstado() { return estado; }
