@@ -93,15 +93,17 @@ public class CajaService {
 
     private void actualizarMorosidad(Socio socio) {
         if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO) return;
-        List<Cuota> pendientes = cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId()).stream()
-                .filter(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE)
+        LocalDate hoy = LocalDate.now();
+        List<Cuota> vencidas = cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId()).stream()
+                .filter(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE
+                        && cuota.getFechaVencimiento().isBefore(hoy))
                 .toList();
-        if (pendientes.isEmpty()) {
+        if (vencidas.isEmpty()) {
             socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
             return;
         }
-        boolean esMoroso = pendientes.stream()
-            .anyMatch(cuota -> cuota.getFechaVencimiento().plusMonths(2).isBefore(LocalDate.now()));
+        boolean esMoroso = vencidas.stream()
+            .anyMatch(cuota -> cuota.getFechaVencimiento().plusMonths(2).isBefore(hoy));
         socio.setEstadoMorosidad(esMoroso ? EstadoMorosidad.MOROSO : EstadoMorosidad.DEUDA_2_MESES);
     }
 
