@@ -44,7 +44,7 @@ public class CajaService {
         return new CajaResumenDTO(
                 socios.size(),
                 socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.AL_DIA).count(),
-                socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.DEUDA_2_MESES || socio.getEstadoMorosidad() == EstadoMorosidad.MOROSO).count(),
+                socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.MOROSO).count(),
                 socios.stream().filter(socio -> socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO).count(),
                 cuentas);
     }
@@ -102,9 +102,7 @@ public class CajaService {
             socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
             return;
         }
-        boolean esMoroso = vencidas.stream()
-            .anyMatch(cuota -> cuota.getFechaVencimiento().plusMonths(2).isBefore(hoy));
-        socio.setEstadoMorosidad(esMoroso ? EstadoMorosidad.MOROSO : EstadoMorosidad.DEUDA_2_MESES);
+        socio.setEstadoMorosidad(EstadoMorosidad.MOROSO);
     }
 
     private Socio findSocio(Long socioId) {

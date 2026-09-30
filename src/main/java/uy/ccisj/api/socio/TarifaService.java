@@ -84,14 +84,10 @@ public class TarifaService {
     private void actualizarMorosidad(Socio socio) {
         LocalDate hoy = LocalDate.now();
         List<Cuota> cuotas = cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId());
-        boolean esMoroso = cuotas.stream()
-            .anyMatch(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE
-                && cuota.getFechaVencimiento().plusMonths(2).isBefore(hoy));
         boolean hayCuotaVencida = cuotas.stream()
             .anyMatch(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE
                 && cuota.getFechaVencimiento().isBefore(hoy));
-        socio.setEstadoMorosidad(esMoroso ? EstadoMorosidad.MOROSO
-            : hayCuotaVencida ? EstadoMorosidad.DEUDA_2_MESES : EstadoMorosidad.AL_DIA);
+        socio.setEstadoMorosidad(hayCuotaVencida ? EstadoMorosidad.MOROSO : EstadoMorosidad.AL_DIA);
     }
 
     private TarifaDTO toDto(Tarifa tarifa) {
