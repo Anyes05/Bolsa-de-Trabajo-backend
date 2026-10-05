@@ -46,6 +46,15 @@ public class OfertaEmpleo {
     @Column(length = 120)
     private String cargo;
 
+    @Column(length = 120)
+    private String zona;
+
+    @Column(length = 120)
+    private String salario;
+
+    @Column(columnDefinition = "TEXT")
+    private String requisitos;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_contrato", length = 20)
     private TipoContrato tipoContrato;
@@ -91,6 +100,12 @@ public class OfertaEmpleo {
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
     public String getCargo() { return cargo; }
     public void setCargo(String cargo) { this.cargo = cargo; }
+    public String getZona() { return zona; }
+    public void setZona(String zona) { this.zona = zona; }
+    public String getSalario() { return salario; }
+    public void setSalario(String salario) { this.salario = salario; }
+    public String getRequisitos() { return requisitos; }
+    public void setRequisitos(String requisitos) { this.requisitos = requisitos; }
     public TipoContrato getTipoContrato() { return tipoContrato; }
     public void setTipoContrato(TipoContrato tipoContrato) { this.tipoContrato = tipoContrato; }
     public DisponibilidadHoraria getDisponibilidadHoraria() { return disponibilidadHoraria; }
