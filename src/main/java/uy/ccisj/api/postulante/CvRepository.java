@@ -11,5 +11,7 @@ public interface CvRepository extends JpaRepository<Cv, Long> {
 
     Optional<Cv> findByPostulanteIdAndActivoTrue(Long postulanteId);
 
+    Optional<Cv> findByPostulanteIdAndPerfilLaboralIdAndActivoTrue(Long postulanteId, Long perfilLaboralId);
+
     long countByPostulanteId(Long postulanteId);
 }

@@ -39,6 +39,12 @@ public class PerfilLaboral {
     @Column(name = "tiene_vehiculo", nullable = false)
     private boolean tieneVehiculo;
 
+    @Column(nullable = false)
+    private boolean visible = true;
+
+    @Column(length = 120)
+    private String libreta;
+
     @Column(name = "ultimo_empleo", length = 200)
     private String ultimoEmpleo;
 
@@ -70,6 +76,10 @@ public class PerfilLaboral {
     public void setDisponibilidadHoraria(DisponibilidadHoraria disponibilidadHoraria) { this.disponibilidadHoraria = disponibilidadHoraria; }
     public boolean isTieneVehiculo() { return tieneVehiculo; }
     public void setTieneVehiculo(boolean tieneVehiculo) { this.tieneVehiculo = tieneVehiculo; }
+    public boolean isVisible() { return visible; }
+    public void setVisible(boolean visible) { this.visible = visible; }
+    public String getLibreta() { return libreta; }
+    public void setLibreta(String libreta) { this.libreta = libreta; }
     public String getUltimoEmpleo() { return ultimoEmpleo; }
     public void setUltimoEmpleo(String ultimoEmpleo) { this.ultimoEmpleo = ultimoEmpleo; }
     public String getDescripcionExperiencia() { return descripcionExperiencia; }

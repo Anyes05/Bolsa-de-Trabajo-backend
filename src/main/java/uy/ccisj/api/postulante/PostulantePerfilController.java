@@ -30,14 +30,14 @@ public class PostulantePerfilController {
     public List<PerfilResponse> list(Authentication authentication) {
         Long postulanteId = postulanteId(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo,
+                SELECT id, nombre, disponibilidad_horaria, tiene_vehiculo, libreta, ultimo_empleo,
                        descripcion_experiencia, visible
                   FROM perfiles_laborales
                  WHERE postulante_id = ?
                  ORDER BY id
                 """, (rs, rowNum) -> new PerfilResponse(
                 rs.getLong("id"), rs.getString("nombre"), rs.getString("disponibilidad_horaria"),
-                rs.getBoolean("tiene_vehiculo"), rs.getString("ultimo_empleo"),
+                rs.getBoolean("tiene_vehiculo"), rs.getString("libreta"), rs.getString("ultimo_empleo"),
                 rs.getString("descripcion_experiencia"), rs.getBoolean("visible"),
                 rubros(rs.getLong("id"))), postulanteId);
     }
@@ -52,11 +52,11 @@ public class PostulantePerfilController {
         }
         int updated = jdbcTemplate.update("""
                 UPDATE perfiles_laborales
-                   SET nombre = ?, disponibilidad_horaria = ?, tiene_vehiculo = ?, ultimo_empleo = ?,
+                   SET nombre = ?, disponibilidad_horaria = ?, tiene_vehiculo = ?, libreta = ?, ultimo_empleo = ?,
                        descripcion_experiencia = ?, visible = ?
                  WHERE id = ? AND postulante_id = ?
                 """, request.nombre().trim(), request.disponibilidadHoraria(), request.tieneVehiculo(),
-                nullIfBlank(request.ultimoEmpleo()), nullIfBlank(request.descripcionExperiencia()),
+                nullIfBlank(request.libreta()), nullIfBlank(request.ultimoEmpleo()), nullIfBlank(request.descripcionExperiencia()),
                 request.visible(), perfilId, postulanteId);
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado");
@@ -86,11 +86,11 @@ public class PostulantePerfilController {
         }
         Long perfilId = jdbcTemplate.queryForObject("""
                 INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo,
-                    ultimo_empleo, descripcion_experiencia, visible)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    libreta, ultimo_empleo, descripcion_experiencia, visible)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """, Long.class, postulanteId, request.nombre().trim(), request.disponibilidadHoraria(),
-                request.tieneVehiculo(), nullIfBlank(request.ultimoEmpleo()),
+                request.tieneVehiculo(), nullIfBlank(request.libreta()), nullIfBlank(request.ultimoEmpleo()),
                 nullIfBlank(request.descripcionExperiencia()), request.visible());
         for (String rubro : request.rubros() == null ? List.<String>of() : request.rubros()) {
             jdbcTemplate.update("""
@@ -104,13 +104,13 @@ public class PostulantePerfilController {
 
     private PerfilResponse find(Long perfilId, Long postulanteId) {
         return jdbcTemplate.query("""
-                SELECT id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo,
+                SELECT id, nombre, disponibilidad_horaria, tiene_vehiculo, libreta, ultimo_empleo,
                        descripcion_experiencia, visible
                   FROM perfiles_laborales
                  WHERE id = ? AND postulante_id = ?
                 """, rs -> rs.next() ? new PerfilResponse(
                 rs.getLong("id"), rs.getString("nombre"), rs.getString("disponibilidad_horaria"),
-                rs.getBoolean("tiene_vehiculo"), rs.getString("ultimo_empleo"),
+                rs.getBoolean("tiene_vehiculo"), rs.getString("libreta"), rs.getString("ultimo_empleo"),
                 rs.getString("descripcion_experiencia"), rs.getBoolean("visible"), rubros(rs.getLong("id"))) : null,
                 perfilId, postulanteId);
     }
@@ -133,9 +133,9 @@ public class PostulantePerfilController {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    public record PerfilRequest(String nombre, String disponibilidadHoraria, boolean tieneVehiculo,
+    public record PerfilRequest(String nombre, String disponibilidadHoraria, boolean tieneVehiculo, String libreta,
             String ultimoEmpleo, String descripcionExperiencia, boolean visible, List<String> rubros) {}
 
-    public record PerfilResponse(Long id, String nombre, String disponibilidadHoraria, boolean tieneVehiculo,
+    public record PerfilResponse(Long id, String nombre, String disponibilidadHoraria, boolean tieneVehiculo, String libreta,
             String ultimoEmpleo, String descripcionExperiencia, boolean visible, List<String> rubros) {}
 }

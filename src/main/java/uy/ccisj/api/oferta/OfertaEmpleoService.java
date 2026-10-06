@@ -44,6 +44,22 @@ public class OfertaEmpleoService {
     }
 
     @Transactional
+    public List<OfertaResponse> listForApplicants(Long rubroId) {
+        expirePastOffers();
+        return ofertaRepository.findByEstadoOrderByFechaPublicacionDesc(EstadoOferta.ACTIVA).stream()
+                .filter(offer -> rubroId == null || offer.getRubro().getId().equals(rubroId))
+                .map(this::response)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RubroOptionResponse> listOfferSectors() {
+        return rubroRepository.findByActivoTrueOrderByNombreRubroAsc().stream()
+                .map(rubro -> new RubroOptionResponse(rubro.getId(), rubro.getNombreRubro()))
+                .toList();
+    }
+
+    @Transactional
     public OfertaResponse create(String email, boolean admin, OfertaRequest request) {
         validate(request);
         Socio socio = admin ? findActiveSocio(request.socioId()) : currentSocio(email);
@@ -155,4 +171,6 @@ public class OfertaEmpleoService {
     }
 
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    public record RubroOptionResponse(Long id, String nombreRubro) {}
 }

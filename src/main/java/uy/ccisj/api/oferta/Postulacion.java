@@ -3,6 +3,7 @@ package uy.ccisj.api.oferta;
 import java.time.OffsetDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,6 +12,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import uy.ccisj.api.postulante.Cv;
+import uy.ccisj.api.postulante.PerfilLaboral;
 import uy.ccisj.api.postulante.Postulante;
 
 @Entity
@@ -28,11 +31,23 @@ public class Postulacion {
     @JoinColumn(name = "oferta_id", nullable = false)
     private OfertaEmpleo oferta;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perfil_laboral_id")
+    private PerfilLaboral perfilLaboral;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cv_id")
+    private Cv cv;
+
     @Column(nullable = false, insertable = false, updatable = false)
     private OffsetDateTime fecha;
 
     @Column(name = "rubro_principal", nullable = false)
     private boolean rubroPrincipal;
+
+    @Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EstadoPostulacion estado = EstadoPostulacion.RECIBIDA;
 
     protected Postulacion() {
     }
@@ -47,7 +62,13 @@ public class Postulacion {
     public void setPostulante(Postulante postulante) { this.postulante = postulante; }
     public OfertaEmpleo getOferta() { return oferta; }
     public void setOferta(OfertaEmpleo oferta) { this.oferta = oferta; }
+    public PerfilLaboral getPerfilLaboral() { return perfilLaboral; }
+    public void setPerfilLaboral(PerfilLaboral perfilLaboral) { this.perfilLaboral = perfilLaboral; }
+    public Cv getCv() { return cv; }
+    public void setCv(Cv cv) { this.cv = cv; }
     public OffsetDateTime getFecha() { return fecha; }
     public boolean isRubroPrincipal() { return rubroPrincipal; }
     public void setRubroPrincipal(boolean rubroPrincipal) { this.rubroPrincipal = rubroPrincipal; }
+    public EstadoPostulacion getEstado() { return estado; }
+    public void setEstado(EstadoPostulacion estado) { this.estado = estado; }
 }
