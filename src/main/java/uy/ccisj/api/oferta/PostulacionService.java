@@ -3,6 +3,7 @@ package uy.ccisj.api.oferta;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import jakarta.persistence.EntityManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,14 +22,17 @@ public class PostulacionService {
     private final PostulacionRepository postulacionRepository;
     private final CvRepository cvRepository;
     private final OfertaEmpleoService ofertaService;
+        private final EntityManager entityManager;
 
     public PostulacionService(OfertaEmpleoRepository ofertaRepository, PostulanteRepository postulanteRepository,
-            PostulacionRepository postulacionRepository, CvRepository cvRepository, OfertaEmpleoService ofertaService) {
+            PostulacionRepository postulacionRepository, CvRepository cvRepository, OfertaEmpleoService ofertaService,
+            EntityManager entityManager) {
         this.ofertaRepository = ofertaRepository;
         this.postulanteRepository = postulanteRepository;
         this.postulacionRepository = postulacionRepository;
         this.cvRepository = cvRepository;
         this.ofertaService = ofertaService;
+        this.entityManager = entityManager;
     }
 
     public List<OfertaResponse> listOffers(Long rubroId) {
@@ -68,7 +72,9 @@ public class PostulacionService {
         application.setPerfilLaboral(profile);
         application.setCv(cv);
         application.setEstado(EstadoPostulacion.RECIBIDA);
-        return response(postulacionRepository.save(application));
+        Postulacion savedApplication = postulacionRepository.saveAndFlush(application);
+        entityManager.refresh(savedApplication);
+        return response(savedApplication);
     }
 
     private uy.ccisj.api.postulante.Postulante requirePostulante(String email) {
