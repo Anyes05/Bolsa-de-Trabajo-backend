@@ -115,7 +115,7 @@ public class CajaService {
     public CuentaCajaDTO registrarReintegro(Long socioId, RegistrarReintegroDTO dto) {
         Socio socio = findSocio(socioId, true);
         validarActivo(socio);
-        LocalDate fecha = dto.fecha() == null ? LocalDate.now() : dto.fecha();
+        LocalDate fecha = LocalDate.now();
         String origen = null;
         if (dto.recurrente()) {
             ReintegroProgramado recurrente = reintegroProgramadoRepository.saveAndFlush(new ReintegroProgramado(socio,
@@ -129,11 +129,31 @@ public class CajaService {
     }
 
     @Transactional
-    public ReintegroProgramadoDTO actualizarProgramado(Long socioId, Long reintegroId, ReintegroProgramadoDTO dto) {
+    public ReintegroProgramadoDTO registrarProgramado(Long socioId, RegistrarReintegroDTO dto) {
         Socio socio = findSocio(socioId, true);
-        ReintegroProgramado programado = reintegroProgramadoRepository.findById(reintegroId)
+        validarActivo(socio);
+        LocalDate primerPeriodo = LocalDate.now().withDayOfMonth(1).plusMonths(1);
+        ReintegroProgramado programado = new ReintegroProgramado(socio, dto.concepto().trim(),
+                dto.monto(), primerPeriodo);
+        return toProgramado(reintegroProgramadoRepository.saveAndFlush(programado));
+    }
+
+    @Transactional
+    public void eliminarProgramado(Long socioId, Long reintegroId) {
+        findSocio(socioId, true);
+        reintegroProgramadoRepository.delete(findProgramado(socioId, reintegroId));
+    }
+
+    private ReintegroProgramado findProgramado(Long socioId, Long reintegroId) {
+        return reintegroProgramadoRepository.findById(reintegroId)
                 .filter(registro -> registro.getSocio().getId().equals(socioId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "El reintegro no existe"));
+    }
+
+    @Transactional
+    public ReintegroProgramadoDTO actualizarProgramado(Long socioId, Long reintegroId, ReintegroProgramadoDTO dto) {
+        Socio socio = findSocio(socioId, true);
+        ReintegroProgramado programado = findProgramado(socioId, reintegroId);
         if (dto.activo()) {
             validarActivo(socio);
         }

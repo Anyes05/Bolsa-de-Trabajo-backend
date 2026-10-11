@@ -2,6 +2,7 @@ package uy.ccisj.api.socio;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,5 +53,18 @@ public class CajaController {
     public ReintegroProgramadoDTO actualizarProgramado(@PathVariable Long socioId, @PathVariable Long reintegroId,
                                                       @Valid @RequestBody ReintegroProgramadoDTO dto) {
         return cajaService.actualizarProgramado(socioId, reintegroId, dto);
+    }
+
+    @PostMapping("/socios/{socioId}/reintegros-programados")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReintegroProgramadoDTO registrarProgramado(@PathVariable Long socioId,
+                                                      @Valid @RequestBody RegistrarReintegroDTO dto) {
+        return cajaService.registrarProgramado(socioId, dto);
+    }
+
+    @DeleteMapping("/socios/{socioId}/reintegros-programados/{reintegroId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminarProgramado(@PathVariable Long socioId, @PathVariable Long reintegroId) {
+        cajaService.eliminarProgramado(socioId, reintegroId);
     }
 }
