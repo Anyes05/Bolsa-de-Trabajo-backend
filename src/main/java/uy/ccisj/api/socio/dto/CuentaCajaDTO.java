@@ -18,5 +18,7 @@ public record CuentaCajaDTO(
         BigDecimal montoTimbre,
         boolean timbreRecurrente,
         LocalDate periodo,
-        LocalDate fechaVencimiento) {
+        LocalDate fechaVencimiento,
+        BigDecimal saldo,
+        BigDecimal deudaVencida) {
 }

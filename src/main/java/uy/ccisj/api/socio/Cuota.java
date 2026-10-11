@@ -2,7 +2,8 @@ package uy.ccisj.api.socio;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import jakarta.persistence.CascadeType;
+import java.util.ArrayList;
+import java.util.List;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,7 +14,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import uy.ccisj.api.domain.EstadoCuota;
@@ -52,8 +53,8 @@ public class Cuota {
     @Column(nullable = false, length = 20)
     private EstadoCuota estado = EstadoCuota.PENDIENTE;
 
-    @OneToOne(mappedBy = "cuota", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Pago pago;
+    @OneToMany(mappedBy = "cuota", fetch = FetchType.LAZY)
+    private List<Pago> pagos = new ArrayList<>();
 
     protected Cuota() {
     }
@@ -82,6 +83,6 @@ public class Cuota {
     public void setFechaVencimiento(LocalDate fechaVencimiento) { this.fechaVencimiento = fechaVencimiento; }
     public EstadoCuota getEstado() { return estado; }
     public void setEstado(EstadoCuota estado) { this.estado = estado; }
-    public Pago getPago() { return pago; }
-    public void setPago(Pago pago) { this.pago = pago; }
+    public List<Pago> getPagos() { return pagos; }
+    public void setPagos(List<Pago> pagos) { this.pagos = pagos; }
 }

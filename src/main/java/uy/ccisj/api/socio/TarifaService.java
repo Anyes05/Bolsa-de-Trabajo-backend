@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import uy.ccisj.api.domain.EstadoCuota;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.socio.dto.FacturacionGeneradaDTO;
 import uy.ccisj.api.socio.dto.GenerarFacturacionDTO;
@@ -18,11 +17,17 @@ public class TarifaService {
     private final TarifaRepository tarifaRepository;
     private final CuotaRepository cuotaRepository;
     private final SocioRepository socioRepository;
+    private final CajaService cajaService;
 
-    public TarifaService(TarifaRepository tarifaRepository, CuotaRepository cuotaRepository, SocioRepository socioRepository) {
+    public TarifaService(
+            TarifaRepository tarifaRepository,
+            CuotaRepository cuotaRepository,
+            SocioRepository socioRepository,
+            CajaService cajaService) {
         this.tarifaRepository = tarifaRepository;
         this.cuotaRepository = cuotaRepository;
         this.socioRepository = socioRepository;
+        this.cajaService = cajaService;
     }
 
     @Transactional(readOnly = true)
@@ -57,37 +62,24 @@ public class TarifaService {
                 .toList();
         List<Cuota> cuotasNuevas = sociosActivos.stream()
                 .filter(socio -> !cuotaRepository.existsBySocioIdAndPeriodo(socio.getId(), periodo))
-            .map(socio -> crearCuota(socio, tarifa, periodo))
+                .map(socio -> crearCuota(socio, tarifa, periodo))
                 .toList();
 
         cuotaRepository.saveAll(cuotasNuevas);
         cuotaRepository.flush();
-        sociosActivos.forEach(this::actualizarMorosidad);
+        sociosActivos.forEach(socio -> {
+            cajaService.generarReintegros(socio, periodo);
+            cajaService.actualizarMorosidad(socio);
+        });
 
         return new FacturacionGeneradaDTO(periodo, tarifa.getId(), sociosActivos.size(), cuotasNuevas.size(),
                 sociosActivos.size() - cuotasNuevas.size());
     }
 
     private Cuota crearCuota(Socio socio, Tarifa tarifa, LocalDate periodo) {
-        int diaVencimiento = Math.min(tarifa.getDiaVencimiento(), periodo.lengthOfMonth());
-        Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), periodo.withDayOfMonth(diaVencimiento));
+        Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), SaldoCuenta.vencimiento(periodo));
         cuota.setTarifa(tarifa);
-        cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId())
-                .filter(Cuota::isTimbreRecurrente)
-                .ifPresent(cuotaAnterior -> {
-                    cuota.setMontoTimbre(cuotaAnterior.getMontoTimbre());
-                    cuota.setTimbreRecurrente(true);
-                });
         return cuota;
-    }
-
-    private void actualizarMorosidad(Socio socio) {
-        LocalDate hoy = LocalDate.now();
-        List<Cuota> cuotas = cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId());
-        boolean hayCuotaVencida = cuotas.stream()
-            .anyMatch(cuota -> cuota.getEstado() == EstadoCuota.PENDIENTE
-                && cuota.getFechaVencimiento().isBefore(hoy));
-        socio.setEstadoMorosidad(hayCuotaVencida ? EstadoMorosidad.MOROSO : EstadoMorosidad.AL_DIA);
     }
 
     private TarifaDTO toDto(Tarifa tarifa) {

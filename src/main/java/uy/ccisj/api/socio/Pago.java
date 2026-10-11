@@ -11,7 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import uy.ccisj.api.domain.MetodoPago;
 
@@ -22,8 +22,12 @@ public class Pago {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "cuota_id", nullable = false, unique = true)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "socio_id", nullable = false)
+    private Socio socio;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cuota_id")
     private Cuota cuota;
 
     @Column(name = "monto_cobrado", nullable = false, precision = 12, scale = 2)
@@ -52,13 +56,20 @@ public class Pago {
     }
 
     public Pago(Cuota cuota, BigDecimal montoCobrado, LocalDate fechaEmision, MetodoPago metodoPago) {
+        this(cuota.getSocio(), montoCobrado, fechaEmision, metodoPago);
         this.cuota = cuota;
+    }
+
+    public Pago(Socio socio, BigDecimal montoCobrado, LocalDate fechaEmision, MetodoPago metodoPago) {
+        this.socio = socio;
         this.montoCobrado = montoCobrado;
         this.fechaEmision = fechaEmision;
         this.metodoPago = metodoPago;
     }
 
     public Long getId() { return id; }
+    public Socio getSocio() { return socio; }
+    public void setSocio(Socio socio) { this.socio = socio; }
     public Cuota getCuota() { return cuota; }
     public void setCuota(Cuota cuota) { this.cuota = cuota; }
     public BigDecimal getMontoCobrado() { return montoCobrado; }

@@ -6,10 +6,10 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CuotaRepository extends JpaRepository<Cuota, Long> {
-    @EntityGraph(attributePaths = {"socio", "socio.usuario", "socio.rubro", "pago"})
+    @EntityGraph(attributePaths = {"socio", "socio.usuario", "socio.rubro"})
     List<Cuota> findAllByOrderByPeriodoDesc();
 
-    @EntityGraph(attributePaths = {"socio", "socio.usuario", "socio.rubro", "pago"})
+    @EntityGraph(attributePaths = {"socio", "socio.usuario", "socio.rubro"})
     List<Cuota> findBySocioIdOrderByPeriodoDesc(Long socioId);
 
     Optional<Cuota> findFirstBySocioIdOrderByPeriodoDesc(Long socioId);

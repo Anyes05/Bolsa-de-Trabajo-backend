@@ -2,20 +2,19 @@ package uy.ccisj.api.socio.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import uy.ccisj.api.domain.EstadoCuota;
 import uy.ccisj.api.domain.MetodoPago;
 
 public record MovimientoCajaDTO(
-        Long cuotaId,
-        LocalDate periodo,
+        Long id,
+        String tipo,
+        String concepto,
+        LocalDate fecha,
         LocalDate fechaVencimiento,
-        EstadoCuota estadoCuota,
-        BigDecimal montoCuota,
-        BigDecimal montoTimbre,
-        boolean timbreRecurrente,
-        BigDecimal montoCobrado,
-        LocalDate fechaCobro,
+        BigDecimal monto,
+        BigDecimal saldoAnterior,
+        BigDecimal saldoResultante,
+        BigDecimal pendiente,
         MetodoPago metodoPago,
-        String nroCobranzaExterno,
+        String referencia,
         String observaciones) {
 }
