@@ -55,13 +55,6 @@ public class CajaController {
         return cajaService.actualizarProgramado(socioId, reintegroId, dto);
     }
 
-    @PostMapping("/socios/{socioId}/reintegros-programados")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ReintegroProgramadoDTO registrarProgramado(@PathVariable Long socioId,
-                                                      @Valid @RequestBody RegistrarReintegroDTO dto) {
-        return cajaService.registrarProgramado(socioId, dto);
-    }
-
     @DeleteMapping("/socios/{socioId}/reintegros-programados/{reintegroId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminarProgramado(@PathVariable Long socioId, @PathVariable Long reintegroId) {

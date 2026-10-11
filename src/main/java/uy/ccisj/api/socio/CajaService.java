@@ -129,16 +129,6 @@ public class CajaService {
     }
 
     @Transactional
-    public ReintegroProgramadoDTO registrarProgramado(Long socioId, RegistrarReintegroDTO dto) {
-        Socio socio = findSocio(socioId, true);
-        validarActivo(socio);
-        LocalDate primerPeriodo = LocalDate.now().withDayOfMonth(1).plusMonths(1);
-        ReintegroProgramado programado = new ReintegroProgramado(socio, dto.concepto().trim(),
-                dto.monto(), primerPeriodo);
-        return toProgramado(reintegroProgramadoRepository.saveAndFlush(programado));
-    }
-
-    @Transactional
     public void eliminarProgramado(Long socioId, Long reintegroId) {
         findSocio(socioId, true);
         reintegroProgramadoRepository.delete(findProgramado(socioId, reintegroId));
