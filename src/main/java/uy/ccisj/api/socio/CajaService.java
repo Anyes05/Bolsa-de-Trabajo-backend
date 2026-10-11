@@ -130,8 +130,10 @@ public class CajaService {
 
     @Transactional
     public void eliminarProgramado(Long socioId, Long reintegroId) {
-        findSocio(socioId, true);
-        reintegroProgramadoRepository.delete(findProgramado(socioId, reintegroId));
+        Socio socio = findSocio(socioId, true);
+        ReintegroProgramado programado = findProgramado(socioId, reintegroId);
+        conservarReintegroDelMes(socio, programado);
+        reintegroProgramadoRepository.delete(programado);
     }
 
     private ReintegroProgramado findProgramado(Long socioId, Long reintegroId) {
@@ -147,6 +149,10 @@ public class CajaService {
         if (dto.activo()) {
             validarActivo(socio);
         }
+        conservarReintegroDelMes(socio, programado);
+        if (!programado.isActivo() && dto.activo()) {
+            programado.setDesdePeriodo(LocalDate.now().withDayOfMonth(1).plusMonths(1));
+        }
         programado.setConcepto(dto.concepto().trim());
         programado.setMonto(dto.monto());
         programado.setActivo(dto.activo());
@@ -157,14 +163,27 @@ public class CajaService {
     public void generarReintegros(Socio socio, LocalDate periodo) {
         findSocio(socio.getId(), true);
         for (ReintegroProgramado programado : reintegroProgramadoRepository.findBySocioIdOrderByIdAsc(socio.getId())) {
-            String origen = origenProgramado(programado, periodo);
-            if (programado.isActivo() && !periodo.isBefore(programado.getDesdePeriodo())
-                    && !reintegroRepository.existsByOrigen(origen)) {
-                reintegroRepository.save(new Reintegro(socio, programado.getConcepto(),
-                        programado.getMonto(), periodo, SaldoCuenta.vencimiento(periodo), origen));
-            }
+            generarReintegro(programado, periodo);
         }
         reintegroRepository.flush();
+    }
+
+    private void conservarReintegroDelMes(Socio socio, ReintegroProgramado programado) {
+        if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO) {
+            return;
+        }
+        generarReintegro(programado, LocalDate.now().withDayOfMonth(1));
+        reintegroRepository.flush();
+        actualizarMorosidad(socio);
+    }
+
+    private void generarReintegro(ReintegroProgramado programado, LocalDate periodo) {
+        String origen = origenProgramado(programado, periodo);
+        if (programado.isActivo() && !periodo.isBefore(programado.getDesdePeriodo())
+                && !reintegroRepository.existsByOrigen(origen)) {
+            reintegroRepository.save(new Reintegro(programado.getSocio(), programado.getConcepto(),
+                    programado.getMonto(), periodo, SaldoCuenta.vencimiento(periodo), origen));
+        }
     }
 
     @Transactional

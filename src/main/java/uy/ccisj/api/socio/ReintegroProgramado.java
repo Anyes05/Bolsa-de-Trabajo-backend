@@ -54,4 +54,5 @@ public class ReintegroProgramado {
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
     public LocalDate getDesdePeriodo() { return desdePeriodo; }
+    public void setDesdePeriodo(LocalDate desdePeriodo) { this.desdePeriodo = desdePeriodo; }
 }
