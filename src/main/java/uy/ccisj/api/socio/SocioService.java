@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
+import uy.ccisj.api.socio.dto.ClaveProvisionalDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
@@ -77,11 +78,13 @@ public class SocioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT");
         }
 
-        User user = userRepository.save(new User(
+        User user = new User(
                 email == null ? null : email.toLowerCase(),
                 bps,
                 passwordEncoder.encode(dto.password()),
-                Role.SOCIO));
+                Role.SOCIO);
+        applyProvisionalPasswordWindow(user);
+        userRepository.save(user);
         Direccion direccion = direccionRepository.save(new Direccion(
                 dto.calle().trim(),
                 trimToNull(dto.numero()),
@@ -143,6 +146,27 @@ public class SocioService {
         return toResponse(socio);
     }
 
+    @Transactional
+    public SocioResponseDTO resetClaveProvisional(Long id, ClaveProvisionalDTO dto) {
+        Socio socio = findSocio(id);
+        User user = socio.getUsuario();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El socio no tiene cuenta de acceso");
+        }
+        if (!user.isActivo()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reactiva al socio antes de restablecer la clave");
+        }
+        user.setPasswordHash(passwordEncoder.encode(dto.password()));
+        applyProvisionalPasswordWindow(user);
+        userRepository.save(user);
+        return toResponse(socio);
+    }
+
+    private void applyProvisionalPasswordWindow(User user) {
+        user.setDebeCambiarPassword(true);
+        user.setPasswordProvisionalHasta(OffsetDateTime.now().plusHours(24));
+    }
+
     private void applyEstadoMorosidad(Socio socio, EstadoMorosidad estado) {
         if (estado == EstadoMorosidad.INACTIVO) {
             markInactive(socio);
@@ -199,6 +223,7 @@ public class SocioService {
         User user = socio.getUsuario();
         Direccion direccion = socio.getDireccion();
         RubroEmpleo rubro = socio.getRubro();
+        EstadoMorosidad estado = resolveEstadoMorosidad(socio, user);
         return new SocioResponseDTO(
                 socio.getId(),
                 user != null ? user.getBps() : null,
@@ -213,12 +238,19 @@ public class SocioService {
                 direccion != null ? direccion.getLocalidad() : null,
                 rubro != null ? rubro.getId() : null,
                 rubro != null ? rubro.getNombreRubro() : null,
-                socio.getEstadoMorosidad(),
+                estado,
                 socio.isEsDirectivo(),
                 socio.getFechaAlta(),
                 user != null ? user.getFechaBaja() : null,
                 socio.getFechaAniversario(),
                 user == null || user.isActivo());
+    }
+
+    private EstadoMorosidad resolveEstadoMorosidad(Socio socio, User user) {
+        if (user != null && !user.isActivo()) {
+            return EstadoMorosidad.INACTIVO;
+        }
+        return socio.getEstadoMorosidad();
     }
 
     private String normalizeBps(String value) {

@@ -1,5 +1,6 @@
 package uy.ccisj.api.auth;
 
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,40 @@ public class AuthService {
                 .filter(candidate -> candidate.getRole() == request.role())
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas"));
+        assertProvisionalPasswordStillValid(user);
         return authResponse(user);
+    }
+
+    @Transactional
+    public AuthResponse changePassword(String principalEmail, ChangePasswordRequest request) {
+        User user = userRepository.findByEmailIgnoreCase(principalEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado"));
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña actual no es correcta");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nueva contraseña debe ser distinta a la actual");
+        }
+        if (user.isDebeCambiarPassword()) {
+            assertProvisionalPasswordStillValid(user);
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setDebeCambiarPassword(false);
+        user.setPasswordProvisionalHasta(null);
+        userRepository.save(user);
+        return authResponse(user);
+    }
+
+    private void assertProvisionalPasswordStillValid(User user) {
+        if (!user.isDebeCambiarPassword()) {
+            return;
+        }
+        OffsetDateTime deadline = user.getPasswordProvisionalHasta();
+        if (deadline != null && OffsetDateTime.now().isAfter(deadline)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "El plazo de 24 horas para cambiar la clave provisional venció. Pedile al administrador que restablezca el acceso.");
+        }
     }
 
     private Optional<User> resolveLoginUser(LoginRequest request) {
@@ -86,7 +120,7 @@ public class AuthService {
         sectorIds.forEach(sectorId -> jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
 
         User user = userRepository.findById(userId).orElseThrow();
-        return new AuthResponse(jwtService.generate(user), user.getEmail(), user.getRole(), request.fullName(), null);
+        return authResponse(user);
     }
 
     private AuthResponse authResponse(User user) {
@@ -95,7 +129,8 @@ public class AuthService {
                 user.getEmail(),
                 user.getRole(),
                 applicantFullName(user),
-                socioEsDirectivo(user));
+                socioEsDirectivo(user),
+                user.isDebeCambiarPassword());
     }
 
     public String applicantFullName(String email) {
@@ -108,6 +143,12 @@ public class AuthService {
         return userRepository.findByEmailIgnoreCase(email)
             .map(this::socioEsDirectivo)
             .orElse(null);
+    }
+
+    public Boolean debeCambiarPassword(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+                .map(User::isDebeCambiarPassword)
+                .orElse(false);
     }
 
     private String applicantFullName(User user) {

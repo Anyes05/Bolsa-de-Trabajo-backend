@@ -40,6 +40,12 @@ public class User {
     @Column(name = "fecha_baja")
     private OffsetDateTime fechaBaja;
 
+    @Column(name = "debe_cambiar_password", nullable = false)
+    private boolean debeCambiarPassword = false;
+
+    @Column(name = "password_provisional_hasta")
+    private OffsetDateTime passwordProvisionalHasta;
+
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY)
     private Postulante postulante;
 
@@ -61,11 +67,18 @@ public class User {
     public String getEmail() { return email; }
     public String getBps() { return bps; }
     public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public Role getRole() { return role; }
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
     public OffsetDateTime getFechaBaja() { return fechaBaja; }
     public void setFechaBaja(OffsetDateTime fechaBaja) { this.fechaBaja = fechaBaja; }
+    public boolean isDebeCambiarPassword() { return debeCambiarPassword; }
+    public void setDebeCambiarPassword(boolean debeCambiarPassword) { this.debeCambiarPassword = debeCambiarPassword; }
+    public OffsetDateTime getPasswordProvisionalHasta() { return passwordProvisionalHasta; }
+    public void setPasswordProvisionalHasta(OffsetDateTime passwordProvisionalHasta) {
+        this.passwordProvisionalHasta = passwordProvisionalHasta;
+    }
     public Postulante getPostulante() { return postulante; }
     public Socio getSocio() { return socio; }
 }

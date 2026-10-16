@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-//
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -32,6 +32,11 @@ public class AuthController {
         return authService.registerApplicant(request);
     }
 
+    @PostMapping("/change-password")
+    public AuthResponse changePassword(Authentication authentication, @Valid @RequestBody ChangePasswordRequest request) {
+        return authService.changePassword(authentication.getName(), request);
+    }
+
     @GetMapping("/me")
     public Map<String, Object> currentUser(Authentication authentication) {
         Map<String, Object> response = new LinkedHashMap<>();
@@ -39,6 +44,7 @@ public class AuthController {
         response.put("roles", authentication.getAuthorities());
         response.put("fullName", authService.applicantFullName(authentication.getName()));
         response.put("esDirectivo", authService.socioEsDirectivo(authentication.getName()));
+        response.put("debeCambiarPassword", authService.debeCambiarPassword(authentication.getName()));
         return response;
     }
 }

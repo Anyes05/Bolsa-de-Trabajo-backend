@@ -275,7 +275,8 @@ public class CajaService {
     }
 
     private EstadoMorosidad calcularEstadoMorosidad(Socio socio, SaldoCuenta.Resultado resultado) {
-        if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO) {
+        if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO
+                || (socio.getUsuario() != null && !socio.getUsuario().isActivo())) {
             return EstadoMorosidad.INACTIVO;
         }
         return resultado.deudaVencida().signum() > 0 ? EstadoMorosidad.MOROSO : EstadoMorosidad.AL_DIA;
