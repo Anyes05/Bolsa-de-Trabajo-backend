@@ -1,5 +1,6 @@
 package uy.ccisj.api.socio;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
 import uy.ccisj.api.socio.dto.SocioUpdateDTO;
+import uy.ccisj.api.socio.dto.TipoIdentificadorSocio;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -62,14 +64,30 @@ public class SocioService {
 
     @Transactional
     public SocioResponseDTO createSocio(SocioCreateDTO dto) {
-        String bps = normalizeBps(dto.bps());
-        if (bps.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El número de BPS es obligatorio");
+        TipoIdentificadorSocio tipo = dto.tipoIdentificador();
+        String identificador = normalizeDigits(dto.identificador());
+        if (identificador.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    tipo == TipoIdentificadorSocio.CEDULA
+                            ? "El número de cédula es obligatorio"
+                            : "El número de BPS es obligatorio");
         }
         String email = trimToNull(dto.email());
         String rut = requireText(dto.rut(), "El RUT es obligatorio");
-        if (userRepository.existsByBps(bps)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese BPS");
+        if (tipo == TipoIdentificadorSocio.BPS) {
+            if (userRepository.existsByBps(identificador)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese BPS");
+            }
+            if (userRepository.existsByCedula(identificador)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese número ya está registrado como cédula de otro socio");
+            }
+        } else {
+            if (userRepository.existsByCedula(identificador)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con esa cédula");
+            }
+            if (userRepository.existsByBps(identificador)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese número ya está registrado como BPS de otro socio");
+            }
         }
         if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
@@ -80,9 +98,16 @@ public class SocioService {
 
         User user = new User(
                 email == null ? null : email.toLowerCase(),
-                bps,
+                null,
                 passwordEncoder.encode(dto.password()),
                 Role.SOCIO);
+        if (tipo == TipoIdentificadorSocio.BPS) {
+            user.setBps(identificador);
+            user.setCedula(null);
+        } else {
+            user.setBps(null);
+            user.setCedula(identificador);
+        }
         applyProvisionalPasswordWindow(user);
         userRepository.save(user);
         Direccion direccion = direccionRepository.save(new Direccion(
@@ -96,6 +121,7 @@ public class SocioService {
         socio.setDireccion(direccion);
         assignRubro(socio, dto.rubroId());
         socio.setEsDirectivo(dto.esDirectivo());
+        socio.setFechaAlta(dto.fechaAlta() != null ? dto.fechaAlta() : LocalDate.now());
         socio.setFechaAniversario(dto.fechaAniversario());
         socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
         return toResponse(socioRepository.save(socio));
@@ -114,6 +140,9 @@ public class SocioService {
         socio.setEmailContacto(normalizeEmail(dto.emailContacto()));
         assignRubro(socio, dto.rubroId());
         socio.setEsDirectivo(dto.esDirectivo());
+        if (dto.fechaAlta() != null) {
+            socio.setFechaAlta(dto.fechaAlta());
+        }
         socio.setFechaAniversario(dto.fechaAniversario());
         if (dto.estadoMorosidad() != null) {
             applyEstadoMorosidad(socio, dto.estadoMorosidad());
@@ -209,7 +238,6 @@ public class SocioService {
     private void assignRubro(Socio socio, Long rubroId) {
         RubroEmpleo rubro = findRubro(rubroId);
         socio.setRubro(rubro);
-        // Compatibilidad: la columna giro se sincroniza con el nombre del rubro del catálogo
         socio.setGiro(rubro.getNombreRubro());
     }
 
@@ -224,9 +252,14 @@ public class SocioService {
         Direccion direccion = socio.getDireccion();
         RubroEmpleo rubro = socio.getRubro();
         EstadoMorosidad estado = resolveEstadoMorosidad(socio, user);
+        String bps = user != null ? user.getBps() : null;
+        String cedula = user != null ? user.getCedula() : null;
+        TipoIdentificadorSocio tipo = resolveTipoIdentificador(bps, cedula);
         return new SocioResponseDTO(
                 socio.getId(),
-                user != null ? user.getBps() : null,
+                bps,
+                cedula,
+                tipo,
                 socio.getRazonSocial(),
                 socio.getRut(),
                 socio.getGiro(),
@@ -246,6 +279,16 @@ public class SocioService {
                 user == null || user.isActivo());
     }
 
+    private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {
+        if (cedula != null && !cedula.isBlank()) {
+            return TipoIdentificadorSocio.CEDULA;
+        }
+        if (bps != null && !bps.isBlank()) {
+            return TipoIdentificadorSocio.BPS;
+        }
+        return null;
+    }
+
     private EstadoMorosidad resolveEstadoMorosidad(Socio socio, User user) {
         if (user != null && !user.isActivo()) {
             return EstadoMorosidad.INACTIVO;
@@ -253,7 +296,7 @@ public class SocioService {
         return socio.getEstadoMorosidad();
     }
 
-    private String normalizeBps(String value) {
+    private String normalizeDigits(String value) {
         return value == null ? "" : value.replaceAll("\\D", "");
     }
 

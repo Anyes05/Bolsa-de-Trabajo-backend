@@ -7,6 +7,8 @@ import uy.ccisj.api.domain.EstadoMorosidad;
 public record SocioResponseDTO(
         Long id,
         String bps,
+        String cedula,
+        TipoIdentificadorSocio tipoIdentificador,
         String razonSocial,
         String rut,
         String giro,

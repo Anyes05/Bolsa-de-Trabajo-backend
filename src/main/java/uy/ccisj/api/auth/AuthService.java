@@ -87,12 +87,17 @@ public class AuthService {
 
     private Optional<User> resolveLoginUser(LoginRequest request) {
         if (request.role() == Role.SOCIO) {
-            return userRepository.findByBps(normalizeBps(request.identifier()));
+            String identifier = normalizeDigits(request.identifier());
+            if (identifier.isBlank()) {
+                return Optional.empty();
+            }
+            return userRepository.findByBps(identifier)
+                    .or(() -> userRepository.findByCedula(identifier));
         }
         return userRepository.findByEmailIgnoreCase(request.identifier());
     }
 
-    private String normalizeBps(String identifier) {
+    private String normalizeDigits(String identifier) {
         return identifier == null ? "" : identifier.replaceAll("\\D", "");
     }
 

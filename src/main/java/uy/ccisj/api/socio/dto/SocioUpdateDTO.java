@@ -18,6 +18,7 @@ public record SocioUpdateDTO(
         @NotBlank(message = "La ciudad es obligatoria") @Size(max = 120) String localidad,
         @NotNull(message = "El rubro es obligatorio") Long rubroId,
         boolean esDirectivo,
+        @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAlta,
         @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAniversario,
         EstadoMorosidad estadoMorosidad) {
 }

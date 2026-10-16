@@ -90,7 +90,7 @@ public class CajaService {
         return new HistorialCajaDTO(
                 socioId,
                 socio.getRazonSocial(),
-                socio.getUsuario().getBps(),
+                identificadorSocio(socio),
                 socio.getRubro() == null ? null : socio.getRubro().getNombreRubro(),
                 calcularEstadoMorosidad(socio, resultado),
                 resultado.saldo(),
@@ -258,7 +258,7 @@ public class CajaService {
         Cuota cuota = cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId()).orElse(null);
         return new CuentaCajaDTO(
                 socio.getId(),
-                socio.getUsuario().getBps(),
+                identificadorSocio(socio),
                 socio.getRazonSocial(),
                 socio.getRubro() == null ? null : socio.getRubro().getNombreRubro(),
                 socio.getTelefono(),
@@ -280,6 +280,16 @@ public class CajaService {
             return EstadoMorosidad.INACTIVO;
         }
         return resultado.deudaVencida().signum() > 0 ? EstadoMorosidad.MOROSO : EstadoMorosidad.AL_DIA;
+    }
+
+    private String identificadorSocio(Socio socio) {
+        if (socio.getUsuario() == null) {
+            return null;
+        }
+        if (socio.getUsuario().getBps() != null && !socio.getUsuario().getBps().isBlank()) {
+            return socio.getUsuario().getBps();
+        }
+        return socio.getUsuario().getCedula();
     }
 
     private Socio findSocio(Long socioId, boolean bloquear) {

@@ -53,6 +53,9 @@ public class ApiExceptionHandler {
         if (message.contains("bps")) {
             return body(HttpStatus.CONFLICT.value(), "Ya existe un socio con ese BPS");
         }
+        if (message.contains("cedula")) {
+            return body(HttpStatus.CONFLICT.value(), "Ya existe un socio con esa cédula");
+        }
         if (message.contains("rut")) {
             return body(HttpStatus.CONFLICT.value(), "Ya existe un socio con ese RUT");
         }

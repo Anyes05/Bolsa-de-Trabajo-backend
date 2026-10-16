@@ -27,6 +27,9 @@ public class User {
     @Column(unique = true, length = 30)
     private String bps;
 
+    @Column(unique = true, length = 30)
+    private String cedula;
+
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
@@ -66,6 +69,9 @@ public class User {
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getBps() { return bps; }
+    public void setBps(String bps) { this.bps = bps; }
+    public String getCedula() { return cedula; }
+    public void setCedula(String cedula) { this.cedula = cedula; }
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public Role getRole() { return role; }
