@@ -15,6 +15,7 @@ import uy.ccisj.api.socio.dto.ClaveProvisionalDTO;
 import uy.ccisj.api.socio.dto.DirectorioSocioDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
+import uy.ccisj.api.socio.dto.SocioPerfilUpdateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
 import uy.ccisj.api.socio.dto.SocioUpdateDTO;
 import uy.ccisj.api.socio.dto.TipoIdentificadorSocio;
@@ -65,22 +66,47 @@ public class SocioService {
 
     @Transactional(readOnly = true)
     public List<DirectorioSocioDTO> listDirectorio(String principalEmail) {
-        requireDirectivo(principalEmail);
+        Socio viewer = requireSocio(principalEmail);
+        if (!viewer.isEsDirectivo()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El directorio solo está disponible para socios directivos");
+        }
         return socioRepository.findAllByOrderByRazonSocialAsc().stream()
                 .filter(socio -> socio.getUsuario() != null && socio.getUsuario().isActivo())
                 .map(this::toDirectorio)
                 .toList();
     }
 
-    private void requireDirectivo(String principalEmail) {
+    @Transactional(readOnly = true)
+    public SocioResponseDTO getMiPerfil(String principalEmail) {
+        return toResponse(requireSocio(principalEmail));
+    }
+
+    @Transactional
+    public SocioResponseDTO updateMiPerfil(String principalEmail, SocioPerfilUpdateDTO dto) {
+        Socio socio = requireSocio(principalEmail);
+        socio.setRazonSocial(dto.razonSocial().trim());
+        socio.setTelefono(trimToNull(dto.telefono()));
+        socio.setEmailContacto(normalizeEmail(dto.emailContacto()));
+        assignRubro(socio, dto.rubroId());
+        socio.setFechaAniversario(dto.fechaAniversario());
+        Direccion direccion = socio.getDireccion();
+        if (direccion == null) {
+            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), dto.localidad().trim());
+        } else {
+            direccion.setCalle(dto.calle().trim());
+            direccion.setNumero(trimToNull(dto.numero()));
+            direccion.setLocalidad(dto.localidad().trim());
+        }
+        socio.setDireccion(direccionRepository.save(direccion));
+        return toResponse(socioRepository.save(socio));
+    }
+
+    private Socio requireSocio(String principalEmail) {
         User user = userRepository.findByEmailIgnoreCase(principalEmail)
                 .filter(candidate -> candidate.isActivo() && candidate.getRole() == Role.SOCIO)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere una cuenta de socio activa"));
-        Socio socio = socioRepository.findByUsuarioId(user.getId())
+        return socioRepository.findByUsuarioId(user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Socio no encontrado"));
-        if (!socio.isEsDirectivo()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El directorio solo está disponible para socios directivos");
-        }
     }
 
     private DirectorioSocioDTO toDirectorio(Socio socio) {
