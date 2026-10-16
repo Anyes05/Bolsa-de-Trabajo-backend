@@ -37,6 +37,7 @@ public class SecurityConfig {
                     .requestMatchers("/admin/socios", "/admin/socios/**").hasRole("ADMIN")
                     .requestMatchers("/admin/caja", "/admin/caja/**").hasRole("ADMIN")
                     .requestMatchers("/admin/rubros", "/admin/rubros/**").hasRole("ADMIN")
+                    .requestMatchers("/socio/directorio", "/socio/directorio/**").hasRole("SOCIO")
             .anyRequest().authenticated())
         .exceptionHandling(exceptions -> exceptions
             .authenticationEntryPoint((request, response, authException) -> {

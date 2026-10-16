@@ -12,6 +12,7 @@ import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.socio.dto.ClaveProvisionalDTO;
+import uy.ccisj.api.socio.dto.DirectorioSocioDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
@@ -60,6 +61,44 @@ public class SocioService {
         return rubroEmpleoRepository.findByActivoTrueOrderByNombreRubroAsc().stream()
                 .map(rubro -> new RubroOptionDTO(rubro.getId(), rubro.getNombreRubro()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DirectorioSocioDTO> listDirectorio(String principalEmail) {
+        requireDirectivo(principalEmail);
+        return socioRepository.findAllByOrderByRazonSocialAsc().stream()
+                .filter(socio -> socio.getUsuario() != null && socio.getUsuario().isActivo())
+                .map(this::toDirectorio)
+                .toList();
+    }
+
+    private void requireDirectivo(String principalEmail) {
+        User user = userRepository.findByEmailIgnoreCase(principalEmail)
+                .filter(candidate -> candidate.isActivo() && candidate.getRole() == Role.SOCIO)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere una cuenta de socio activa"));
+        Socio socio = socioRepository.findByUsuarioId(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Socio no encontrado"));
+        if (!socio.isEsDirectivo()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El directorio solo está disponible para socios directivos");
+        }
+    }
+
+    private DirectorioSocioDTO toDirectorio(Socio socio) {
+        User user = socio.getUsuario();
+        RubroEmpleo rubro = socio.getRubro();
+        String email = trimToNull(socio.getEmailContacto());
+        if (email == null && user != null) {
+            email = user.getEmail();
+        }
+        return new DirectorioSocioDTO(
+                socio.getId(),
+                socio.getRazonSocial(),
+                rubro != null ? rubro.getNombreRubro() : (socio.getGiro() != null ? socio.getGiro() : "Sin rubro"),
+                socio.getTelefono(),
+                email,
+                resolveEstadoMorosidad(socio, user),
+                socio.getFechaAlta(),
+                socio.isEsDirectivo());
     }
 
     @Transactional
