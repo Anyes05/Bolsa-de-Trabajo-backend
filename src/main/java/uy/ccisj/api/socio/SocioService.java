@@ -25,18 +25,21 @@ public class SocioService {
     private final DireccionRepository direccionRepository;
     private final RubroEmpleoRepository rubroEmpleoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CajaService cajaService;
 
     public SocioService(
             SocioRepository socioRepository,
             UserRepository userRepository,
             DireccionRepository direccionRepository,
             RubroEmpleoRepository rubroEmpleoRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            CajaService cajaService) {
         this.socioRepository = socioRepository;
         this.userRepository = userRepository;
         this.direccionRepository = direccionRepository;
         this.rubroEmpleoRepository = rubroEmpleoRepository;
         this.passwordEncoder = passwordEncoder;
+        this.cajaService = cajaService;
     }
 
     @Transactional(readOnly = true)
@@ -85,11 +88,10 @@ public class SocioService {
                 dto.localidad().trim()));
         Socio socio = new Socio(user, dto.razonSocial().trim());
         socio.setRut(rut);
-        socio.setGiro(trimToNull(dto.giro()));
         socio.setTelefono(trimToNull(dto.telefono()));
         socio.setEmailContacto(normalizeEmail(dto.emailContacto()));
         socio.setDireccion(direccion);
-        socio.setRubro(findRubro(dto.rubroId()));
+        assignRubro(socio, dto.rubroId());
         socio.setEsDirectivo(dto.esDirectivo());
         socio.setFechaAniversario(dto.fechaAniversario());
         socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
@@ -105,14 +107,13 @@ public class SocioService {
         }
         socio.setRazonSocial(dto.razonSocial().trim());
         socio.setRut(rut);
-        socio.setGiro(trimToNull(dto.giro()));
         socio.setTelefono(trimToNull(dto.telefono()));
         socio.setEmailContacto(normalizeEmail(dto.emailContacto()));
-        socio.setRubro(findRubro(dto.rubroId()));
+        assignRubro(socio, dto.rubroId());
         socio.setEsDirectivo(dto.esDirectivo());
         socio.setFechaAniversario(dto.fechaAniversario());
         if (dto.estadoMorosidad() != null) {
-            socio.setEstadoMorosidad(dto.estadoMorosidad());
+            applyEstadoMorosidad(socio, dto.estadoMorosidad());
         }
         Direccion direccion = socio.getDireccion();
         if (direccion == null) {
@@ -129,26 +130,63 @@ public class SocioService {
     @Transactional
     public SocioResponseDTO deactivateSocio(Long id) {
         Socio socio = findSocio(id);
-        User user = socio.getUsuario();
-        user.setActivo(false);
-        user.setFechaBaja(OffsetDateTime.now());
-        userRepository.save(user);
-        return toResponse(socio);
+        markInactive(socio);
+        return toResponse(socioRepository.save(socio));
     }
 
     @Transactional
     public SocioResponseDTO activateSocio(Long id) {
         Socio socio = findSocio(id);
-        User user = socio.getUsuario();
-        user.setActivo(true);
-        user.setFechaBaja(null);
-        userRepository.save(user);
+        markActive(socio);
+        socioRepository.save(socio);
+        cajaService.actualizarMorosidad(socio);
         return toResponse(socio);
+    }
+
+    private void applyEstadoMorosidad(Socio socio, EstadoMorosidad estado) {
+        if (estado == EstadoMorosidad.INACTIVO) {
+            markInactive(socio);
+            return;
+        }
+        markActive(socio);
+        socio.setEstadoMorosidad(estado);
+    }
+
+    private void markInactive(Socio socio) {
+        socio.setEstadoMorosidad(EstadoMorosidad.INACTIVO);
+        User user = socio.getUsuario();
+        if (user == null) {
+            return;
+        }
+        user.setActivo(false);
+        if (user.getFechaBaja() == null) {
+            user.setFechaBaja(OffsetDateTime.now());
+        }
+        userRepository.save(user);
+    }
+
+    private void markActive(Socio socio) {
+        User user = socio.getUsuario();
+        if (user != null) {
+            user.setActivo(true);
+            user.setFechaBaja(null);
+            userRepository.save(user);
+        }
+        if (socio.getEstadoMorosidad() == EstadoMorosidad.INACTIVO) {
+            socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
+        }
     }
 
     private Socio findSocio(Long id) {
         return socioRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Socio no encontrado"));
+    }
+
+    private void assignRubro(Socio socio, Long rubroId) {
+        RubroEmpleo rubro = findRubro(rubroId);
+        socio.setRubro(rubro);
+        // Compatibilidad: la columna giro se sincroniza con el nombre del rubro del catálogo
+        socio.setGiro(rubro.getNombreRubro());
     }
 
     private RubroEmpleo findRubro(Long rubroId) {
