@@ -68,6 +68,8 @@ public class CajaService {
         List<MovimientoCajaDTO> historial = new ArrayList<>();
         for (MovimientoCajaDTO registro : registros) {
             BigDecimal saldoAnterior = saldo;
+            BigDecimal saldoFavorUtilizado = !esPago(registro) && saldoAnterior.signum() < 0
+                    ? saldoAnterior.negate().min(registro.monto()) : BigDecimal.ZERO;
             saldo = saldo.add(esPago(registro) ? registro.monto().negate() : registro.monto());
             historial.add(new MovimientoCajaDTO(
                     registro.id(),
@@ -81,7 +83,8 @@ public class CajaService {
                     resultado.pendientes().getOrDefault(claveCargo(registro), BigDecimal.ZERO),
                     registro.metodoPago(),
                     registro.referencia(),
-                    registro.observaciones()));
+                    registro.observaciones(),
+                    saldoFavorUtilizado));
         }
         List<ReintegroProgramadoDTO> reintegrosProgramados = reintegroProgramadoRepository
                 .findBySocioIdOrderByIdAsc(socioId).stream()
@@ -205,21 +208,21 @@ public class CajaService {
                 historial.add(new MovimientoCajaDTO(cuota.getId(), "CUOTA",
                         "Cuota " + YearMonth.from(cuota.getPeriodo()), cuota.getPeriodo(),
                         cuota.getFechaVencimiento(), cuota.getMonto(), BigDecimal.ZERO, BigDecimal.ZERO,
-                        BigDecimal.ZERO, null, null, null));
+                        BigDecimal.ZERO, null, null, null, BigDecimal.ZERO));
             }
         }
         for (Reintegro reintegro : reintegroRepository.findBySocioIdOrderByFechaAscIdAsc(socioId)) {
             if (reintegro.getCuota() == null || reintegro.getCuota().getEstado() != EstadoCuota.ANULADA) {
                 historial.add(new MovimientoCajaDTO(reintegro.getId(), "REINTEGRO", reintegro.getConcepto(),
                         reintegro.getFecha(), reintegro.getFechaVencimiento(), reintegro.getMonto(),
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null));
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, BigDecimal.ZERO));
             }
         }
         for (Pago pago : pagoRepository.findBySocioIdOrderByFechaEmisionAscIdAsc(socioId)) {
             if (pago.getCuota() == null || pago.getCuota().getEstado() != EstadoCuota.ANULADA) {
                 historial.add(new MovimientoCajaDTO(pago.getId(), "PAGO", "Pago recibido", pago.getFechaEmision(),
                         null, pago.getMontoCobrado(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                        pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones()));
+                        pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones(), BigDecimal.ZERO));
             }
         }
         historial.sort(Comparator.comparing(MovimientoCajaDTO::fecha)

@@ -16,5 +16,6 @@ public record MovimientoCajaDTO(
         BigDecimal pendiente,
         MetodoPago metodoPago,
         String referencia,
-        String observaciones) {
+        String observaciones,
+        BigDecimal saldoFavorUtilizado) {
 }
