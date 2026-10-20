@@ -22,6 +22,10 @@ public class MailNotificationService {
     }
 
     public void send(String recipient, String subject, String text) {
+        send(recipient, subject, text, null);
+    }
+
+    public void send(String recipient, String subject, String text, String replyTo) {
         if (recipient == null || recipient.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El destinatario del correo es obligatorio");
         }
@@ -34,6 +38,9 @@ public class MailNotificationService {
             message.setTo(recipient.trim());
             message.setSubject(subject);
             message.setText(text);
+            if (replyTo != null && !replyTo.isBlank()) {
+                message.setReplyTo(replyTo.trim());
+            }
             mailSender.send(message);
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,

@@ -6,12 +6,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.UserRepository;
@@ -23,15 +26,18 @@ public class SocioBolsaController {
     private final UserRepository userRepository;
     private final SocioRepository socioRepository;
         private final S3StorageService storageService;
+        private final MailNotificationService mailNotificationService;
         private final int presignedMinutes;
 
     public SocioBolsaController(JdbcTemplate jdbcTemplate, UserRepository userRepository,
                         SocioRepository socioRepository, S3StorageService storageService,
+                        MailNotificationService mailNotificationService,
                         @Value("${app.storage.presigned-minutes:15}") int presignedMinutes) {
         this.jdbcTemplate = jdbcTemplate;
         this.userRepository = userRepository;
         this.socioRepository = socioRepository;
         this.storageService = storageService;
+        this.mailNotificationService = mailNotificationService;
         this.presignedMinutes = presignedMinutes;
     }
 
@@ -118,6 +124,46 @@ public class SocioBolsaController {
         return new CvLink(storageService.presignedDownloadUrl(key, Duration.ofMinutes(presignedMinutes)));
     }
 
+        @PostMapping("/{profileId}/notificacion")
+        public ContactNotification notifyApplicant(Authentication authentication, @PathVariable Long profileId,
+            @RequestBody ContactNotificationRequest request) {
+        Long socioId = requireEligibleSocio(authentication.getName());
+        ContactRecipient recipient = jdbcTemplate.query("""
+            SELECT p.nombre_completo AS postulante_nombre, u.email AS postulante_email,
+                   s.razon_social, COALESCE(NULLIF(s.email_contacto, ''), socio_usuario.email) AS socio_email
+              FROM perfiles_laborales pl
+              JOIN postulantes p ON p.id = pl.postulante_id AND p.visible = TRUE
+              JOIN usuarios u ON u.id = p.usuario_id AND u.activo = TRUE
+              JOIN socios s ON s.id = ?
+              JOIN usuarios socio_usuario ON socio_usuario.id = s.usuario_id AND socio_usuario.activo = TRUE
+             WHERE pl.id = ? AND pl.visible = TRUE
+            """, rs -> rs.next()
+                ? new ContactRecipient(rs.getString("postulante_nombre"), rs.getString("postulante_email"),
+                    rs.getString("razon_social"), rs.getString("socio_email"))
+                : null, socioId, profileId);
+        if (recipient == null || recipient.applicantEmail() == null || recipient.applicantEmail().isBlank()
+            || recipient.socioEmail() == null || recipient.socioEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró un correo de contacto para esta notificación");
+        }
+
+        String result = request.selected() ? "ha sido seleccionado/a" : "no ha sido seleccionado/a";
+        String subject = "Actualización de tu perfil en la Bolsa de Empleo CCISJ";
+        String text = """
+            Hola %s,
+
+            %s te informa que tu perfil %s para continuar en su proceso de selección.
+
+            Puedes responder a este correo para comunicarte directamente con %s.
+            Correo de contacto: %s
+
+            Saludos,
+            Bolsa de Empleo CCISJ
+            """.formatted(recipient.applicantName(), recipient.socioName(), result,
+            recipient.socioName(), recipient.socioEmail());
+        mailNotificationService.send(recipient.applicantEmail(), subject, text, recipient.socioEmail());
+        return new ContactNotification("Notificación enviada a " + recipient.applicantEmail());
+        }
+
     private void requireProfileApplication(Long profileId, Long socioId) {
         Boolean hasApplication = jdbcTemplate.queryForObject("""
                 SELECT EXISTS (
@@ -173,4 +219,10 @@ public class SocioBolsaController {
         public record ProfileCv(Long id, String fileName, String meta, boolean active, java.time.OffsetDateTime uploadedAt) {}
 
     public record CvLink(String url) {}
+
+    public record ContactNotificationRequest(boolean selected) {}
+
+    public record ContactNotification(String message) {}
+
+    private record ContactRecipient(String applicantName, String applicantEmail, String socioName, String socioEmail) {}
 }
