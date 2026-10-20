@@ -25,21 +25,24 @@ public class FacturacionMensualScheduler {
     @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 0 0 * * *", zone = "America/Montevideo")
     public void generarFacturacionDelMes() {
-        LocalDate periodo = LocalDate.now(ZoneId.of("America/Montevideo")).withDayOfMonth(1);
+        LocalDate periodoFacturar = LocalDate.now(ZoneId.of("America/Montevideo"))
+                .withDayOfMonth(1)
+                .minusMonths(1);
         try {
-            FacturacionGeneradaDTO resultado = tarifaService.generarFacturacion(new GenerarFacturacionDTO(periodo));
+            FacturacionGeneradaDTO resultado = tarifaService.generarFacturacion(
+                    new GenerarFacturacionDTO(periodoFacturar));
             if (resultado.cuotasGeneradas() > 0) {
                 LOGGER.info("Facturacion automatica del periodo {}: {} cuotas nuevas",
-                        periodo, resultado.cuotasGeneradas());
+                        periodoFacturar, resultado.cuotasGeneradas());
             }
         } catch (ResponseStatusException exception) {
             if (exception.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
-                LOGGER.warn("No se genero la facturacion de {}: falta configurar la tarifa anual", periodo);
+                LOGGER.warn("No se genero la facturacion de {}: falta configurar la tarifa anual", periodoFacturar);
             } else {
-                LOGGER.error("No se pudo generar la facturacion automatica de {}", periodo, exception);
+                LOGGER.error("No se pudo generar la facturacion automatica de {}", periodoFacturar, exception);
             }
         } catch (RuntimeException exception) {
-            LOGGER.error("No se pudo generar la facturacion automatica de {}", periodo, exception);
+            LOGGER.error("No se pudo generar la facturacion automatica de {}", periodoFacturar, exception);
         }
     }
 }
