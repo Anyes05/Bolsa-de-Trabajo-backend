@@ -99,7 +99,9 @@ public class CajaService {
                 resultado.saldo(),
                 resultado.deudaVencida(),
                 historial,
-                reintegrosProgramados);
+                reintegrosProgramados,
+                socio.getRut(),
+                cedulaSocio(socio));
     }
 
     @Transactional
@@ -274,7 +276,9 @@ public class CajaService {
                 cuota == null ? null : cuota.getPeriodo(),
                 cuota == null ? null : cuota.getFechaVencimiento(),
                 resultado.saldo(),
-                resultado.deudaVencida());
+                resultado.deudaVencida(),
+                socio.getRut(),
+                cedulaSocio(socio));
     }
 
     private EstadoMorosidad calcularEstadoMorosidad(Socio socio, SaldoCuenta.Resultado resultado) {
@@ -293,6 +297,10 @@ public class CajaService {
             return socio.getUsuario().getBps();
         }
         return socio.getUsuario().getCedula();
+    }
+
+    private String cedulaSocio(Socio socio) {
+        return socio.getUsuario() == null ? null : socio.getUsuario().getCedula();
     }
 
     private Socio findSocio(Long socioId, boolean bloquear) {

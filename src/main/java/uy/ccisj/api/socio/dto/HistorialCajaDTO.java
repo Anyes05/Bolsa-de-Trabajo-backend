@@ -13,5 +13,7 @@ public record HistorialCajaDTO(
         BigDecimal saldo,
         BigDecimal deudaVencida,
         List<MovimientoCajaDTO> movimientos,
-        List<ReintegroProgramadoDTO> reintegrosProgramados) {
+        List<ReintegroProgramadoDTO> reintegrosProgramados,
+        String rut,
+        String cedula) {
 }

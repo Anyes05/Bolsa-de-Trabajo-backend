@@ -20,5 +20,7 @@ public record CuentaCajaDTO(
         LocalDate periodo,
         LocalDate fechaVencimiento,
         BigDecimal saldo,
-        BigDecimal deudaVencida) {
+        BigDecimal deudaVencida,
+        String rut,
+        String cedula) {
 }
