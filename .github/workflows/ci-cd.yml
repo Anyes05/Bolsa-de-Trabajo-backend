@@ -139,6 +139,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          GMAIL_SMTP_USERNAME: ${{ secrets.GMAIL_SMTP_USERNAME }}
+          GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_ADMIN_RECIPIENT: ${{ secrets.MAIL_ADMIN_RECIPIENT }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           mkdir -p ~/.ssh
@@ -146,15 +150,32 @@ jobs:
           chmod 600 ~/.ssh/ccisj.pem
           ssh-keyscan -H "${EC2_HOST}" >> ~/.ssh/known_hosts
 
+          GMAIL_SMTP_USERNAME_B64="$(printf '%s' "${GMAIL_SMTP_USERNAME}" | base64 -w 0)"
+          GMAIL_SMTP_APP_PASSWORD_B64="$(printf '%s' "${GMAIL_SMTP_APP_PASSWORD}" | base64 -w 0)"
+          MAIL_FROM_B64="$(printf '%s' "${MAIL_FROM}" | base64 -w 0)"
+          MAIL_ADMIN_RECIPIENT_B64="$(printf '%s' "${MAIL_ADMIN_RECIPIENT}" | base64 -w 0)"
+
           for attempt in 1 2 3 4 5 6; do
             if ssh -i ~/.ssh/ccisj.pem "ec2-user@${EC2_HOST}" \
-              "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' S3_BUCKET='${S3_BUCKET}' bash -s" <<'EOF'
+              "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' S3_BUCKET='${S3_BUCKET}' GMAIL_SMTP_USERNAME_B64='${GMAIL_SMTP_USERNAME_B64}' GMAIL_SMTP_APP_PASSWORD_B64='${GMAIL_SMTP_APP_PASSWORD_B64}' MAIL_FROM_B64='${MAIL_FROM_B64}' MAIL_ADMIN_RECIPIENT_B64='${MAIL_ADMIN_RECIPIENT_B64}' bash -s" <<'EOF'
           set -euo pipefail
 
           ECR_REGISTRY="${IMAGE_SHA_TAG%%/*}"
           aws ecr get-login-password --region "${AWS_REGION}" | sudo docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
           S3_BUCKET_VALUE="${S3_BUCKET:-}"
+
+          upsert_runtime_env() {
+            local key="$1"
+            local value="$2"
+            sudo sed -i "/^${key}=/d" /opt/ccisj/runtime.env
+            printf '%s=%s\n' "${key}" "${value}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
+          }
+
+          upsert_runtime_env GMAIL_SMTP_USERNAME "$(printf '%s' "${GMAIL_SMTP_USERNAME_B64}" | base64 --decode)"
+          upsert_runtime_env GMAIL_SMTP_APP_PASSWORD "$(printf '%s' "${GMAIL_SMTP_APP_PASSWORD_B64}" | base64 --decode)"
+          upsert_runtime_env MAIL_FROM "$(printf '%s' "${MAIL_FROM_B64}" | base64 --decode)"
+          upsert_runtime_env MAIL_ADMIN_RECIPIENT "$(printf '%s' "${MAIL_ADMIN_RECIPIENT_B64}" | base64 --decode)"
 
           # Sincroniza credenciales/runtime de backend en cada deploy para evitar tokens vencidos.
           sudo sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${IMAGE_SHA_TAG}|" /opt/ccisj/runtime.env
