@@ -196,6 +196,19 @@ jobs:
             sudo grep -q '^S3_BUCKET=' /opt/ccisj/runtime.env || echo "S3_BUCKET=${S3_BUCKET_VALUE}" | sudo tee -a /opt/ccisj/runtime.env >/dev/null
           fi
 
+          # Actualiza instalaciones existentes cuyo Compose fue creado antes del soporte SMTP.
+          if ! sudo grep -q '^      GMAIL_SMTP_USERNAME:' /opt/ccisj/docker-compose.prod.yml; then
+            cat >/tmp/ccisj-smtp-compose.sed <<'SED'
+          /      S3_BUCKET:/i\
+                GMAIL_SMTP_USERNAME: ${GMAIL_SMTP_USERNAME:-}
+                GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}
+                MAIL_FROM: ${MAIL_FROM:-}
+                MAIL_ADMIN_RECIPIENT: ${MAIL_ADMIN_RECIPIENT:-}
+          SED
+            sudo sed -i -f /tmp/ccisj-smtp-compose.sed /opt/ccisj/docker-compose.prod.yml
+            rm /tmp/ccisj-smtp-compose.sed
+          fi
+
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml pull backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml up -d backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml ps backend
