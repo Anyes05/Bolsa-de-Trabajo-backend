@@ -40,7 +40,7 @@ public class SocioBolsaController {
             @RequestParam(required = false) String rubro) {
         Long socioId = requireEligibleSocio(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT pl.id, p.nombre_completo, pl.nombre AS perfil_nombre, p.zona_residencia,
+                SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, pl.nombre AS perfil_nombre, p.zona_residencia,
                        pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                                                                                              COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                                                                                              CASE WHEN application.id IS NOT NULL THEN p.cedula_identidad END AS cedula_identidad,
@@ -69,7 +69,7 @@ public class SocioBolsaController {
                        SELECT 1 FROM perfil_rubros filter_pr
                        JOIN rubros_empleo filter_r ON filter_r.id = filter_pr.rubro_id
                        WHERE filter_pr.perfil_id = pl.id AND filter_r.nombre_rubro = ?))
-                 GROUP BY p.id, p.nombre_completo, pl.id, pl.nombre, p.zona_residencia,
+                 GROUP BY p.id, p.nombre_completo, u.email, pl.id, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                           p.cedula_identidad, p.fecha_nacimiento, pl.descripcion_experiencia,
                           pl.ultimo_empleo, application.id, cv.id, cv.nombre_archivo, cv.size_bytes
@@ -78,7 +78,8 @@ public class SocioBolsaController {
                     String fullName = rs.getString("nombre_completo");
                     List<String> sectors = splitRubros(rs.getString("rubros"));
                     String availability = rs.getString("disponibilidad_horaria");
-                    return new ApplicantProfileCard(rs.getLong("id"), fullName, initials(fullName),
+                    return new ApplicantProfileCard(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
+                            rs.getString("email"), initials(fullName),
                             rs.getString("perfil_nombre"), sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
                             rs.getString("zona_residencia"), sectors, availability, rs.getString("libreta"),
                             rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_postulacion"),
@@ -90,26 +91,49 @@ public class SocioBolsaController {
                         rubro == null || rubro.isBlank() ? null : rubro.trim());
     }
 
-        @GetMapping("/{profileId}/cv")
-        public CvLink downloadCv(Authentication authentication, @PathVariable Long profileId) {
-                Long socioId = requireEligibleSocio(authentication.getName());
-                String key = jdbcTemplate.query("""
-                                SELECT cv.ruta_archivo_cv
-                                  FROM postulaciones a
-                                  JOIN ofertas_empleo o ON o.id = a.oferta_id
-                                  JOIN perfiles_laborales pl ON pl.id = a.perfil_laboral_id
-                                  JOIN cvs cv ON cv.id = a.cv_id
-                                 WHERE pl.id = ? AND o.socio_id = ?
-                                 ORDER BY a.fecha DESC
-                                 LIMIT 1
-                                """, rs -> rs.next() ? rs.getString(1) : null, profileId, socioId);
-                if (key == null || key.isBlank()) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No hay un CV disponible para este perfil");
-                }
-                return new CvLink(storageService.presignedDownloadUrl(key, Duration.ofMinutes(presignedMinutes)));
-        }
+    @GetMapping("/{profileId}/cvs")
+    public List<ProfileCv> listCvs(Authentication authentication, @PathVariable Long profileId) {
+        requireProfileApplication(profileId, requireEligibleSocio(authentication.getName()));
+        return jdbcTemplate.query("""
+                SELECT id, nombre_archivo, size_bytes, activo, fecha_carga
+                  FROM cvs
+                 WHERE perfil_laboral_id = ?
+                 ORDER BY activo DESC, fecha_carga DESC, id DESC
+                """, (rs, rowNum) -> new ProfileCv(rs.getLong("id"), rs.getString("nombre_archivo"),
+                        cvMeta(rs.getLong("size_bytes"), rs.wasNull()), rs.getBoolean("activo"),
+                        rs.getObject("fecha_carga", java.time.OffsetDateTime.class)), profileId);
+    }
 
-        private Long requireEligibleSocio(String email) {
+    @GetMapping("/{profileId}/cvs/{cvId}")
+    public CvLink downloadCv(Authentication authentication, @PathVariable Long profileId, @PathVariable Long cvId) {
+        requireProfileApplication(profileId, requireEligibleSocio(authentication.getName()));
+        String key = jdbcTemplate.query("""
+                SELECT ruta_archivo_cv
+                  FROM cvs
+                 WHERE id = ? AND perfil_laboral_id = ?
+                """, rs -> rs.next() ? rs.getString(1) : null, cvId, profileId);
+        if (key == null || key.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado para este perfil");
+        }
+        return new CvLink(storageService.presignedDownloadUrl(key, Duration.ofMinutes(presignedMinutes)));
+    }
+
+    private void requireProfileApplication(Long profileId, Long socioId) {
+        Boolean hasApplication = jdbcTemplate.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM postulaciones a
+                      JOIN ofertas_empleo o ON o.id = a.oferta_id
+                     WHERE a.perfil_laboral_id = ? AND o.socio_id = ?
+                )
+                """, Boolean.class, profileId, socioId);
+        if (!Boolean.TRUE.equals(hasApplication)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "El perfil no se postuló a una oferta de tu empresa");
+        }
+    }
+
+    private Long requireEligibleSocio(String email) {
         var user = userRepository.findByEmailIgnoreCase(email)
                 .filter(candidate -> candidate.isActivo() && candidate.getRole() == Role.SOCIO)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -141,10 +165,12 @@ public class SocioBolsaController {
                 : String.format(java.util.Locale.ROOT, "%.1f MB", sizeBytes / (1024.0 * 1024.0)));
     }
 
-    public record ApplicantProfileCard(Long id, String fullName, String initials, String profileName,
+        public record ApplicantProfileCard(Long id, Long applicantId, String fullName, String email, String initials, String profileName,
             String categoryLabel, String location, List<String> sectors, String availability, String license,
             boolean hasVehicle, boolean hasApplication, boolean hasCv, String identityCard, Integer age,
             String experienceSummary, String latestJob, String cvFileName, String cvMeta) {}
+
+        public record ProfileCv(Long id, String fileName, String meta, boolean active, java.time.OffsetDateTime uploadedAt) {}
 
     public record CvLink(String url) {}
 }

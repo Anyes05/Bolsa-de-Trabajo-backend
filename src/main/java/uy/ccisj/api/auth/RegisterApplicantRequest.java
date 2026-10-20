@@ -15,7 +15,7 @@ public record RegisterApplicantRequest(
         @NotBlank @Size(min = 12, max = 72) String password,
         @NotBlank @Size(max = 120) String residenceArea,
         @NotBlank @Size(max = 120) String profileName,
-        @NotEmpty List<@NotBlank String> sectors,
+        @NotEmpty @Size(max = 4, message = "Puedes seleccionar como máximo 4 rubros") List<@NotBlank String> sectors,
         @Pattern(regexp = "FULL_TIME|PART_TIME") String availability,
         boolean hasVehicle,
         @Size(max = 200) String latestJob,

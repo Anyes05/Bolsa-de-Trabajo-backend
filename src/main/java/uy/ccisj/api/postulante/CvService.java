@@ -95,14 +95,16 @@ public class CvService {
         validateFile(file);
         enrichPostulanteFromPdfIfMissing(postulante, file);
 
+        var profile = resolvePerfil(postulante.getId(), perfilLaboralId);
         var allCvs = cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId());
+        var profileCvs = cvRepository.findByPostulanteIdAndPerfilLaboralIdOrderByVersionDesc(postulante.getId(), profile.getId());
         int nextVersion = allCvs.isEmpty() ? 1 : allCvs.getFirst().getVersion() + 1;
-        allCvs.forEach(cv -> cv.setActivo(false));
-        // La base admite una sola version activa: confirma el cambio antes del nuevo INSERT.
+        profileCvs.forEach(cv -> cv.setActivo(false));
+        // La base admite una sola version activa por perfil: confirma el cambio antes del nuevo INSERT.
         cvRepository.flush();
 
         var cv = new Cv(postulante);
-        cv.setPerfilLaboral(resolvePerfil(postulante.getId(), perfilLaboralId));
+        cv.setPerfilLaboral(profile);
         cv.setResumen(resumen);
         cv.setVersion(nextVersion);
         cv.setActivo(true);
@@ -142,8 +144,9 @@ public class CvService {
         var target = cvRepository.findByIdAndPostulanteId(cvId, postulante.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado"));
 
-        var allCvs = cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId());
-        allCvs.forEach(cv -> cv.setActivo(cv.getId().equals(target.getId())));
+        var profileCvs = cvRepository.findByPostulanteIdAndPerfilLaboralIdOrderByVersionDesc(
+            postulante.getId(), target.getPerfilLaboral().getId());
+        profileCvs.forEach(cv -> cv.setActivo(cv.getId().equals(target.getId())));
 
         return toResponse(target);
     }

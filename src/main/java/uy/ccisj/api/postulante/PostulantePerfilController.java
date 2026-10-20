@@ -50,6 +50,7 @@ public class PostulantePerfilController {
         if (request.nombre() == null || request.nombre().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del perfil es obligatorio");
         }
+        validateRubros(request.rubros());
         int updated = jdbcTemplate.update("""
                 UPDATE perfiles_laborales
                    SET nombre = ?, disponibilidad_horaria = ?, tiene_vehiculo = ?, libreta = ?, ultimo_empleo = ?,
@@ -84,6 +85,7 @@ public class PostulantePerfilController {
         if (request.nombre() == null || request.nombre().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del perfil es obligatorio");
         }
+        validateRubros(request.rubros());
         Long perfilId = jdbcTemplate.queryForObject("""
                 INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo,
                     libreta, ultimo_empleo, descripcion_experiencia, visible)
@@ -131,6 +133,12 @@ public class PostulantePerfilController {
 
     private String nullIfBlank(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void validateRubros(List<String> rubros) {
+        if (rubros != null && rubros.size() > 4) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puedes seleccionar como máximo 4 rubros");
+        }
     }
 
     public record PerfilRequest(String nombre, String disponibilidadHoraria, boolean tieneVehiculo, String libreta,
