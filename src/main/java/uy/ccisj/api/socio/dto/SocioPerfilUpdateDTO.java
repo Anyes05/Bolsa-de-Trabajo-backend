@@ -8,11 +8,12 @@ import java.time.LocalDate;
 
 public record SocioPerfilUpdateDTO(
         @NotBlank(message = "La razón social es obligatoria") @Size(max = 200) String razonSocial,
-        @Size(max = 40) String telefono,
+        @NotBlank(message = "El teléfono es obligatorio") @Size(max = 40) String telefono,
         @Size(max = 254) String emailContacto,
         @NotBlank(message = "La calle es obligatoria") @Size(max = 160) String calle,
         @Size(max = 20) String numero,
-        @NotBlank(message = "La ciudad es obligatoria") @Size(max = 120) String localidad,
+        @NotBlank(message = "La localidad es obligatoria") @Size(max = 120) String localidad,
         @NotNull(message = "El rubro es obligatorio") Long rubroId,
+        @NotNull(message = "La fecha de aniversario es obligatoria")
         @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAniversario) {
 }

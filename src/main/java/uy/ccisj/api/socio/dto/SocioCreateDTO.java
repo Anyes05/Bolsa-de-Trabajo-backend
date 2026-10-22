@@ -15,15 +15,16 @@ public record SocioCreateDTO(
         String identificador,
         @NotBlank(message = "El correo es obligatorio") @Email(message = "El correo no es válido") @Size(max = 254) String email,
         @NotBlank(message = "La razón social es obligatoria") @Size(max = 200) String razonSocial,
-        @NotBlank(message = "El RUT es obligatorio") @Size(max = 20, message = "El RUT es demasiado largo") String rut,
+        @NotBlank(message = "El RUT o la cédula es obligatorio") @Size(max = 20, message = "El RUT o la cédula es demasiado largo") String rut,
         @Size(max = 160) String giro,
-        @Size(max = 40) String telefono,
+        @NotBlank(message = "El teléfono es obligatorio") @Size(max = 40) String telefono,
         @Size(max = 254) String emailContacto,
         @NotBlank(message = "La calle es obligatoria") @Size(max = 160) String calle,
         @Size(max = 20) String numero,
-        @NotBlank(message = "La ciudad es obligatoria") @Size(max = 120) String localidad,
+        @NotBlank(message = "La localidad es obligatoria") @Size(max = 120) String localidad,
         @NotNull(message = "El rubro es obligatorio") Long rubroId,
         boolean esDirectivo,
         @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAlta,
+        @NotNull(message = "La fecha de aniversario es obligatoria")
         @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAniversario) {
 }

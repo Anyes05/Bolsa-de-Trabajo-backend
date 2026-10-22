@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.catalogo.LocalidadesSanJose;
 import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
@@ -100,11 +101,11 @@ public class SocioService {
         socio.setFechaAniversario(dto.fechaAniversario());
         Direccion direccion = socio.getDireccion();
         if (direccion == null) {
-            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), dto.localidad().trim());
+            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), validateLocalidad(dto.localidad()));
         } else {
             direccion.setCalle(dto.calle().trim());
             direccion.setNumero(trimToNull(dto.numero()));
-            direccion.setLocalidad(dto.localidad().trim());
+            direccion.setLocalidad(validateLocalidad(dto.localidad()));
         }
         socio.setDireccion(direccionRepository.save(direccion));
         return toResponse(socioRepository.save(socio));
@@ -146,8 +147,12 @@ public class SocioService {
                             ? "El número de cédula es obligatorio"
                             : "El número de BPS es obligatorio");
         }
+        if (tipo == TipoIdentificadorSocio.BPS && identificador.length() < 9) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El número de BPS debe tener al menos 9 dígitos");
+        }
         String email = trimToNull(dto.email());
-        String rut = requireText(dto.rut(), "El RUT es obligatorio");
+        String rut = normalizeRut(dto.rut());
         if (tipo == TipoIdentificadorSocio.BPS) {
             if (userRepository.existsByBps(identificador)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese BPS");
@@ -167,7 +172,7 @@ public class SocioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
         }
         if (socioRepository.existsByRutIgnoreCase(rut)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT o cédula");
         }
 
         String passwordProvisional = PasswordPolicy.generateProvisional(dto.razonSocial());
@@ -188,7 +193,7 @@ public class SocioService {
         Direccion direccion = direccionRepository.save(new Direccion(
                 dto.calle().trim(),
                 trimToNull(dto.numero()),
-                dto.localidad().trim()));
+                validateLocalidad(dto.localidad())));
         Socio socio = new Socio(user, dto.razonSocial().trim());
         socio.setRut(rut);
         socio.setTelefono(trimToNull(dto.telefono()));
@@ -205,9 +210,9 @@ public class SocioService {
     @Transactional
     public SocioResponseDTO updateSocio(Long id, SocioUpdateDTO dto) {
         Socio socio = findSocio(id);
-        String rut = requireText(dto.rut(), "El RUT es obligatorio");
+        String rut = normalizeRut(dto.rut());
         if (socioRepository.existsByRutIgnoreCaseAndIdNot(rut, id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT o cédula");
         }
         socio.setRazonSocial(dto.razonSocial().trim());
         socio.setRut(rut);
@@ -224,11 +229,11 @@ public class SocioService {
         }
         Direccion direccion = socio.getDireccion();
         if (direccion == null) {
-            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), dto.localidad().trim());
+            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), validateLocalidad(dto.localidad()));
         } else {
             direccion.setCalle(dto.calle().trim());
             direccion.setNumero(trimToNull(dto.numero()));
-            direccion.setLocalidad(dto.localidad().trim());
+            direccion.setLocalidad(validateLocalidad(dto.localidad()));
         }
         socio.setDireccion(direccionRepository.save(direccion));
         return toResponse(socioRepository.save(socio));
@@ -432,17 +437,30 @@ public class SocioService {
         return value == null ? "" : value.replaceAll("\\D", "");
     }
 
+    private String normalizeRut(String value) {
+        String rut = normalizeDigits(value);
+        if (rut.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El RUT o la cédula es obligatorio");
+        }
+        if (rut.length() != 12 && rut.length() != 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Debe ser un RUT de 12 dígitos o una cédula de 8 dígitos");
+        }
+        return rut;
+    }
+
+    private String validateLocalidad(String value) {
+        String localidad = value == null ? "" : value.trim();
+        if (!LocalidadesSanJose.isValid(localidad)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La localidad debe ser una de las localidades de San José precargadas");
+        }
+        return localidad;
+    }
+
     private String normalizeEmail(String value) {
         String email = trimToNull(value);
         return email == null ? null : email.toLowerCase();
-    }
-
-    private String requireText(String value, String message) {
-        String text = trimToNull(value);
-        if (text == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-        }
-        return text;
     }
 
     private String trimToNull(String value) {
