@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
-import uy.ccisj.api.socio.dto.ClaveProvisionalDTO;
+import uy.ccisj.api.auth.PasswordPolicy;
 import uy.ccisj.api.socio.dto.DirectorioSocioDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
@@ -161,10 +161,11 @@ public class SocioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT");
         }
 
+        String passwordProvisional = PasswordPolicy.generateProvisional(dto.razonSocial());
         User user = new User(
                 email == null ? null : email.toLowerCase(),
                 null,
-                passwordEncoder.encode(dto.password()),
+                passwordEncoder.encode(passwordProvisional),
                 Role.SOCIO);
         if (tipo == TipoIdentificadorSocio.BPS) {
             user.setBps(identificador);
@@ -189,7 +190,7 @@ public class SocioService {
         socio.setFechaAlta(dto.fechaAlta() != null ? dto.fechaAlta() : LocalDate.now());
         socio.setFechaAniversario(dto.fechaAniversario());
         socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
-        return toResponse(socioRepository.save(socio));
+        return toResponse(socioRepository.save(socio), passwordProvisional);
     }
 
     @Transactional
@@ -241,7 +242,7 @@ public class SocioService {
     }
 
     @Transactional
-    public SocioResponseDTO resetClaveProvisional(Long id, ClaveProvisionalDTO dto) {
+    public SocioResponseDTO resetClaveProvisional(Long id) {
         Socio socio = findSocio(id);
         User user = socio.getUsuario();
         if (user == null) {
@@ -250,10 +251,11 @@ public class SocioService {
         if (!user.isActivo()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Reactiva al socio antes de restablecer la clave");
         }
-        user.setPasswordHash(passwordEncoder.encode(dto.password()));
+        String passwordProvisional = PasswordPolicy.generateProvisional(socio.getRazonSocial());
+        user.setPasswordHash(passwordEncoder.encode(passwordProvisional));
         applyProvisionalPasswordWindow(user);
         userRepository.save(user);
-        return toResponse(socio);
+        return toResponse(socio, passwordProvisional);
     }
 
     private void applyProvisionalPasswordWindow(User user) {
@@ -313,6 +315,10 @@ public class SocioService {
     }
 
     private SocioResponseDTO toResponse(Socio socio) {
+        return toResponse(socio, null);
+    }
+
+    private SocioResponseDTO toResponse(Socio socio, String passwordProvisional) {
         User user = socio.getUsuario();
         Direccion direccion = socio.getDireccion();
         RubroEmpleo rubro = socio.getRubro();
@@ -341,7 +347,8 @@ public class SocioService {
                 socio.getFechaAlta(),
                 user != null ? user.getFechaBaja() : null,
                 socio.getFechaAniversario(),
-                user == null || user.isActivo());
+                user == null || user.isActivo(),
+                passwordProvisional);
     }
 
     private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {

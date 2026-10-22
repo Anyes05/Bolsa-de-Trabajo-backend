@@ -14,7 +14,6 @@ public record SocioCreateDTO(
         @Size(max = 30, message = "El identificador es demasiado largo")
         String identificador,
         @NotBlank(message = "El correo es obligatorio") @Email(message = "El correo no es válido") @Size(max = 254) String email,
-        @NotBlank(message = "La contraseña es obligatoria") @Size(min = 12, max = 72, message = "La contraseña debe tener entre 12 y 72 caracteres") String password,
         @NotBlank(message = "La razón social es obligatoria") @Size(max = 200) String razonSocial,
         @NotBlank(message = "El RUT es obligatorio") @Size(max = 20, message = "El RUT es demasiado largo") String rut,
         @Size(max = 160) String giro,

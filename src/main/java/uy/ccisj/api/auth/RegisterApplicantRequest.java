@@ -12,7 +12,7 @@ public record RegisterApplicantRequest(
         @NotBlank @Size(max = 30) String identityCard,
         @NotBlank @Size(max = 40) String phone,
         @NotBlank @Email @Size(max = 254) String email,
-        @NotBlank @Size(min = 12, max = 72) String password,
+        @NotBlank @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE) String password,
         @NotBlank @Size(max = 120) String residenceArea,
         @NotBlank @Size(max = 120) String profileName,
         @NotEmpty @Size(max = 4, message = "Puedes seleccionar como máximo 4 rubros") List<@NotBlank String> sectors,
