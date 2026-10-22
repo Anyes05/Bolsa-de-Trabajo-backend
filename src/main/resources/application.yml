@@ -38,6 +38,7 @@ server:
     context-path: /api
 
 app:
+  web-url: ${APP_WEB_URL:https://ccisj.cloud-ip.cc}
   jwt:
     secret: ${JWT_SECRET}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:480}

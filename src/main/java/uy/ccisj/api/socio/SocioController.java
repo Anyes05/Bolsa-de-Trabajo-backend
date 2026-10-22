@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import uy.ccisj.api.socio.dto.CredencialesEnviadasDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
@@ -65,5 +66,10 @@ public class SocioController {
     @PostMapping("/{id}/clave-provisional")
     public SocioResponseDTO resetClaveProvisional(@PathVariable Long id) {
         return socioService.resetClaveProvisional(id);
+    }
+
+    @PostMapping("/{id}/enviar-credenciales")
+    public CredencialesEnviadasDTO enviarCredenciales(@PathVariable Long id) {
+        return socioService.enviarCredenciales(id);
     }
 }

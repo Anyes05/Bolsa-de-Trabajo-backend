@@ -3,6 +3,7 @@ package uy.ccisj.api.socio;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.auth.PasswordPolicy;
+import uy.ccisj.api.mail.MailNotificationService;
+import uy.ccisj.api.socio.dto.CredencialesEnviadasDTO;
 import uy.ccisj.api.socio.dto.DirectorioSocioDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
 import uy.ccisj.api.socio.dto.SocioCreateDTO;
@@ -31,6 +34,8 @@ public class SocioService {
     private final RubroEmpleoRepository rubroEmpleoRepository;
     private final PasswordEncoder passwordEncoder;
     private final CajaService cajaService;
+    private final MailNotificationService mailNotificationService;
+    private final String webUrl;
 
     public SocioService(
             SocioRepository socioRepository,
@@ -38,13 +43,17 @@ public class SocioService {
             DireccionRepository direccionRepository,
             RubroEmpleoRepository rubroEmpleoRepository,
             PasswordEncoder passwordEncoder,
-            CajaService cajaService) {
+            CajaService cajaService,
+            MailNotificationService mailNotificationService,
+            @Value("${app.web-url:https://ccisj.cloud-ip.cc}") String webUrl) {
         this.socioRepository = socioRepository;
         this.userRepository = userRepository;
         this.direccionRepository = direccionRepository;
         this.rubroEmpleoRepository = rubroEmpleoRepository;
         this.passwordEncoder = passwordEncoder;
         this.cajaService = cajaService;
+        this.mailNotificationService = mailNotificationService;
+        this.webUrl = webUrl;
     }
 
     @Transactional(readOnly = true)
@@ -256,6 +265,57 @@ public class SocioService {
         applyProvisionalPasswordWindow(user);
         userRepository.save(user);
         return toResponse(socio, passwordProvisional);
+    }
+
+    @Transactional
+    public CredencialesEnviadasDTO enviarCredenciales(Long id) {
+        Socio socio = findSocio(id);
+        User user = socio.getUsuario();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El socio no tiene cuenta de acceso");
+        }
+        if (!user.isActivo()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reactiva al socio antes de enviar las credenciales");
+        }
+        String destinatario = trimToNull(user.getEmail());
+        if (destinatario == null) {
+            destinatario = trimToNull(socio.getEmailContacto());
+        }
+        if (destinatario == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El socio no tiene un email para enviarle las credenciales");
+        }
+
+        String passwordProvisional = PasswordPolicy.generateProvisional(socio.getRazonSocial());
+        user.setPasswordHash(passwordEncoder.encode(passwordProvisional));
+        applyProvisionalPasswordWindow(user);
+        userRepository.save(user);
+
+        boolean conCedula = user.getCedula() != null && !user.getCedula().isBlank();
+        String tipoUsuario = conCedula ? "cédula" : "BPS";
+        String usuarioAcceso = conCedula ? user.getCedula() : user.getBps();
+        String subject = "CCISJ - Tus credenciales de acceso a la Bolsa de Trabajo";
+        String text = """
+                Hola, %s:
+
+                Te damos la bienvenida al sistema de Bolsa de Trabajo del Centro Comercial e Industrial de San José (CCISJ).
+
+                Tus credenciales de acceso son:
+                - Ingresar en: %s
+                - Usuario (tu %s): %s
+                - Contraseña provisional: %s
+
+                IMPORTANTE: esta contraseña es temporal. Tenés 24 horas desde la recepción de este correo para ingresar y cambiarla por una contraseña definitiva. Si vence el plazo, deberás solicitar al administrador que te genere una nueva.
+
+                La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.
+
+                Este es un correo automático, por favor no lo respondas.
+                """.formatted(socio.getRazonSocial(), webUrl, tipoUsuario, usuarioAcceso, passwordProvisional);
+
+        mailNotificationService.send(destinatario, subject, text);
+        return new CredencialesEnviadasDTO(
+                destinatario,
+                passwordProvisional,
+                "Credenciales enviadas a " + destinatario);
     }
 
     private void applyProvisionalPasswordWindow(User user) {
