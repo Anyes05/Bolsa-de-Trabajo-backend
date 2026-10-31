@@ -37,6 +37,19 @@ public class AuthController {
         return authService.changePassword(authentication.getName(), request);
     }
 
+    @PostMapping("/register/availability")
+    public RegistrationAvailability availability(@Valid @RequestBody RegistrationAvailabilityRequest request) {
+        return authService.registrationAvailability(request.email(), request.identityCard());
+    }
+
+    public record RegistrationAvailabilityRequest(
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Email
+            @jakarta.validation.constraints.Size(max = 254) String email,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 30) String identityCard) {}
+
+    public record RegistrationAvailability(boolean emailExists, boolean identityCardExists) {}
+
+
     @GetMapping("/me")
     public Map<String, Object> currentUser(Authentication authentication) {
         Map<String, Object> response = new LinkedHashMap<>();

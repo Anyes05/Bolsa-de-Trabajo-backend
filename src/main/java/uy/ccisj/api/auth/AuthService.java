@@ -103,8 +103,12 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerApplicant(RegisterApplicantRequest request) {
-        if (userRepository.existsByEmailIgnoreCase(request.email())) {
+        var availability = registrationAvailability(request.email(), request.identityCard());
+        if (availability.emailExists()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
+        }
+        if (availability.identityCardExists()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cédula ya está registrada");
         }
 
         Long userId = insertAndReturnId("INSERT INTO usuarios (email, password_hash, rol) VALUES (?, ?, 'POSTULANTE')",
@@ -136,6 +140,14 @@ public class AuthService {
                 applicantFullName(user),
                 socioEsDirectivo(user),
                 user.isDebeCambiarPassword());
+    }
+
+    public AuthController.RegistrationAvailability registrationAvailability(String email, String identityCard) {
+        boolean emailExists = userRepository.existsByEmailIgnoreCase(email.trim());
+        boolean identityCardExists = Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM postulantes WHERE cedula_identidad = ?)",
+                Boolean.class, identityCard));
+        return new AuthController.RegistrationAvailability(emailExists, identityCardExists);
     }
 
     public String applicantFullName(String email) {
