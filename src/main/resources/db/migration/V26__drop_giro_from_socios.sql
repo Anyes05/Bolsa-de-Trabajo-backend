@@ -1,0 +1,1 @@
+ALTER TABLE socios DROP COLUMN IF EXISTS giro;

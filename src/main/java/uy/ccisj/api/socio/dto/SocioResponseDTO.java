@@ -11,7 +11,6 @@ public record SocioResponseDTO(
         TipoIdentificadorSocio tipoIdentificador,
         String razonSocial,
         String rut,
-        String giro,
         String telefono,
         String emailContacto,
         String emailUsuario,

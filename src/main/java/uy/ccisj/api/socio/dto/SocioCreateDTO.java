@@ -16,7 +16,6 @@ public record SocioCreateDTO(
         @NotBlank(message = "El correo es obligatorio") @Email(message = "El correo no es válido") @Size(max = 254) String email,
         @NotBlank(message = "La razón social es obligatoria") @Size(max = 200) String razonSocial,
         @NotBlank(message = "El RUT o la cédula es obligatorio") @Size(max = 20, message = "El RUT o la cédula es demasiado largo") String rut,
-        @Size(max = 160) String giro,
         @NotBlank(message = "El teléfono es obligatorio") @Size(max = 40) String telefono,
         @Size(max = 254) String emailContacto,
         @NotBlank(message = "La calle es obligatoria") @Size(max = 160) String calle,

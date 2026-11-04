@@ -129,7 +129,7 @@ public class SocioService {
         return new DirectorioSocioDTO(
                 socio.getId(),
                 socio.getRazonSocial(),
-                rubro != null ? rubro.getNombreRubro() : (socio.getGiro() != null ? socio.getGiro() : "Sin rubro"),
+                rubro != null ? rubro.getNombreRubro() : "Sin rubro",
                 socio.getTelefono(),
                 email,
                 resolveEstadoMorosidad(socio, user),
@@ -370,7 +370,6 @@ public class SocioService {
     private void assignRubro(Socio socio, Long rubroId) {
         RubroEmpleo rubro = findRubro(rubroId);
         socio.setRubro(rubro);
-        socio.setGiro(rubro.getNombreRubro());
     }
 
     private RubroEmpleo findRubro(Long rubroId) {
@@ -398,7 +397,6 @@ public class SocioService {
                 tipo,
                 socio.getRazonSocial(),
                 socio.getRut(),
-                socio.getGiro(),
                 socio.getTelefono(),
                 socio.getEmailContacto(),
                 user != null ? user.getEmail() : null,

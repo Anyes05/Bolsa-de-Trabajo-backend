@@ -53,9 +53,6 @@ public class Socio {
     @Column(name = "email_contacto", length = 254)
     private String emailContacto;
 
-    @Column(length = 160)
-    private String giro;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_morosidad", nullable = false, length = 30)
     private EstadoMorosidad estadoMorosidad = EstadoMorosidad.AL_DIA;
@@ -98,8 +95,6 @@ public class Socio {
     public void setTelefono(String telefono) { this.telefono = telefono; }
     public String getEmailContacto() { return emailContacto; }
     public void setEmailContacto(String emailContacto) { this.emailContacto = emailContacto; }
-    public String getGiro() { return giro; }
-    public void setGiro(String giro) { this.giro = giro; }
     public EstadoMorosidad getEstadoMorosidad() { return estadoMorosidad; }
     public void setEstadoMorosidad(EstadoMorosidad estadoMorosidad) { this.estadoMorosidad = estadoMorosidad; }
     public boolean isEsDirectivo() { return esDirectivo; }
