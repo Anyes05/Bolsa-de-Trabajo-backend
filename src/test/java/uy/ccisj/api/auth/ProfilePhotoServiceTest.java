@@ -17,6 +17,14 @@ class ProfilePhotoServiceTest {
     private final ProfilePhotoService photos = new ProfilePhotoService(jdbc);
 
     @Test
+    void prefersUploadedPhotosOverGoogleAndUsesGoogleAsFallback() {
+        String google = "https://lh3.googleusercontent.com/test";
+        assertEquals(google, ProfilePhotoService.photoUrl(null, null, google));
+        assertEquals("data:image/png;base64,AQID", ProfilePhotoService.photoUrl(new byte[] {1, 2, 3}, "image/png", google));
+        assertNull(ProfilePhotoService.photoUrl(null, null, null));
+    }
+
+    @Test
     void uploadsAndRemovesOnlyTheAuthenticatedAccount() {
         byte[] bytes = {1, 2, 3};
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);

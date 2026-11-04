@@ -59,11 +59,12 @@ public class PostulanteDatosPersonalesController {
     private DatosPersonalesResponse find(String email) {
         return jdbcTemplate.query("""
                   SELECT p.nombre_completo, p.cedula_identidad, p.telefono, p.zona_residencia,
-                      u.foto_perfil, u.foto_mime, u.email
+                      u.foto_perfil, u.foto_mime, u.google_photo_url, u.email
                 FROM postulantes p JOIN usuarios u ON u.id = p.usuario_id WHERE u.email = ?
                 """, rs -> rs.next() ? new DatosPersonalesResponse(rs.getString("nombre_completo"),
                 rs.getString("cedula_identidad"), rs.getString("telefono"), rs.getString("zona_residencia"),
-                rs.getString("email"), ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"))) : null, email);
+                rs.getString("email"), ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
+                        rs.getString("google_photo_url"))) : null, email);
     }
 
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }

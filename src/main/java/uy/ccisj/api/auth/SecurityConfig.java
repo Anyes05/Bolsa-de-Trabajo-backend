@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers("/actuator/health", "/auth/login", "/auth/register", "/auth/register/availability", "/sectors", "/error").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/auth/google", "/auth/google/link", "/auth/google/register").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/admin/socios", "/admin/socios/**").hasRole("ADMIN")
                     .requestMatchers("/admin/caja", "/admin/caja/**").hasRole("ADMIN")

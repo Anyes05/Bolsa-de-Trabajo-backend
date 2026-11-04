@@ -33,6 +33,9 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    @Column(name = "google_subject", unique = true, length = 255)
+    private String googleSubject;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "rol", nullable = false, length = 20)
     private Role role;
@@ -73,6 +76,8 @@ public class User {
     public String getCedula() { return cedula; }
     public void setCedula(String cedula) { this.cedula = cedula; }
     public String getPasswordHash() { return passwordHash; }
+    public String getGoogleSubject() { return googleSubject; }
+    public void setGoogleSubject(String googleSubject) { this.googleSubject = googleSubject; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public Role getRole() { return role; }
     public boolean isActivo() { return activo; }

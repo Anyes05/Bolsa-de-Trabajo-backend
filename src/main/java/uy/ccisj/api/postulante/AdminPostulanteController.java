@@ -42,7 +42,7 @@ public class AdminPostulanteController {
                        COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                        p.cedula_identidad, EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer AS edad,
                        pl.descripcion_experiencia, pl.ultimo_empleo, cv.id IS NOT NULL AS tiene_cv,
-                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime
+                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
                   FROM perfiles_laborales pl
                   JOIN postulantes p ON p.id = pl.postulante_id
                   JOIN usuarios u ON u.id = p.usuario_id
@@ -71,7 +71,7 @@ public class AdminPostulanteController {
                     rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                     rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
                     rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
-                    ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime")));
+                    ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"), rs.getString("google_photo_url")));
         });
     }
 

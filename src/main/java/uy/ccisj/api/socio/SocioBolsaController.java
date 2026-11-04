@@ -57,7 +57,7 @@ public class SocioBolsaController {
                                                                                              CASE WHEN application.id IS NOT NULL THEN pl.ultimo_empleo END AS ultimo_empleo,
                                                                                              application.id IS NOT NULL AS tiene_postulacion,
                                                                                              cv.id IS NOT NULL AS tiene_cv,
-                                                                                             cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime
+                                                                                             cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
                   FROM perfiles_laborales pl
                   JOIN postulantes p ON p.id = pl.postulante_id
                   JOIN usuarios u ON u.id = p.usuario_id AND u.activo = TRUE
@@ -94,7 +94,7 @@ public class SocioBolsaController {
                             rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                             rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
                             rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
-                            ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime")));
+                            ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"), rs.getString("google_photo_url")));
                 }, socioId, rubro == null || rubro.isBlank() ? null : rubro.trim(),
                         rubro == null || rubro.isBlank() ? null : rubro.trim());
     }

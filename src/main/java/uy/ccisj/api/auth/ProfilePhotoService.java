@@ -20,10 +20,10 @@ public class ProfilePhotoService {
     }
 
     public String find(String email) {
-        return jdbcTemplate.query("SELECT foto_perfil, foto_mime FROM usuarios WHERE email = ? AND activo = TRUE",
+        return jdbcTemplate.query("SELECT foto_perfil, foto_mime, google_photo_url FROM usuarios WHERE email = ? AND activo = TRUE",
                 rs -> {
                     if (!rs.next()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
-                    return photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"));
+                    return photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"), rs.getString("google_photo_url"));
                 }, email);
     }
 
@@ -46,7 +46,7 @@ public class ProfilePhotoService {
 
     public void remove(String email) {
         requireUpdated(jdbcTemplate.update(
-                "UPDATE usuarios SET foto_perfil = NULL, foto_mime = NULL WHERE email = ? AND activo = TRUE", email));
+                "UPDATE usuarios SET foto_perfil = NULL, foto_mime = NULL, google_photo_url = NULL WHERE email = ? AND activo = TRUE", email));
     }
 
     private void requireUpdated(int updated) {
@@ -55,5 +55,9 @@ public class ProfilePhotoService {
 
     public static String photoUrl(byte[] bytes, String mime) {
         return bytes == null ? null : "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public static String photoUrl(byte[] bytes, String mime, String googlePhotoUrl) {
+        return bytes == null ? googlePhotoUrl : photoUrl(bytes, mime);
     }
 }
