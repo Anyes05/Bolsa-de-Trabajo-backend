@@ -29,6 +29,16 @@ public class NotificacionService {
     }
 
     @Transactional
+    public NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id) {
+        User user = requireSocio(emailOrPrincipal);
+        Notificacion notificacion = notificacionRepository.findByIdAndUsuarioId(id, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificación no encontrada"));
+        notificacion.setLeida(true);
+        notificacion.setPopup(false);
+        return toDto(notificacionRepository.save(notificacion));
+    }
+
+    @Transactional
     public void markAllRead(String emailOrPrincipal) {
         User user = requireSocio(emailOrPrincipal);
         notificacionRepository.markAllRead(user.getId());

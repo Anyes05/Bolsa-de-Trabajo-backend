@@ -14,11 +14,11 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
 
     Optional<Notificacion> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    @Modifying(clearAutomatically = true)
-    @Query("update Notificacion n set n.leida = true where n.usuario.id = :usuarioId and n.leida = false")
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Notificacion n set n.leida = true, n.popup = false where n.usuario.id = :usuarioId")
     int markAllRead(@Param("usuarioId") Long usuarioId);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Notificacion n set n.popup = false where n.usuario.id = :usuarioId and n.popup = true")
     int dismissPopups(@Param("usuarioId") Long usuarioId);
 }
