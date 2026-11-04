@@ -1,5 +1,6 @@
 package uy.ccisj.api.comunicado;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -9,7 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.comunicado.dto.AudienciaCountsDTO;
 import uy.ccisj.api.comunicado.dto.ComunicadoCreateDTO;
@@ -34,36 +36,79 @@ public class ComunicadoService {
     private final SocioRepository socioRepository;
     private final UserRepository userRepository;
     private final MailNotificationService mailNotificationService;
+    private final TransactionTemplate transactionTemplate;
 
     public ComunicadoService(
             ComunicadoRepository comunicadoRepository,
             NotificacionRepository notificacionRepository,
             SocioRepository socioRepository,
             UserRepository userRepository,
-            MailNotificationService mailNotificationService) {
+            MailNotificationService mailNotificationService,
+            PlatformTransactionManager transactionManager) {
         this.comunicadoRepository = comunicadoRepository;
         this.notificacionRepository = notificacionRepository;
         this.socioRepository = socioRepository;
         this.userRepository = userRepository;
         this.mailNotificationService = mailNotificationService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional(readOnly = true)
     public AudienciaCountsDTO audienciaCounts() {
-        return new AudienciaCountsDTO(
+        AudienciaCountsDTO counts = transactionTemplate.execute(status -> new AudienciaCountsDTO(
                 socioRepository.countActivos(EstadoMorosidad.INACTIVO),
-                socioRepository.countDirectivosActivos(EstadoMorosidad.INACTIVO));
+                socioRepository.countDirectivosActivos(EstadoMorosidad.INACTIVO)));
+        return counts != null ? counts : new AudienciaCountsDTO(0, 0);
     }
 
-    @Transactional(readOnly = true)
     public List<ComunicadoResponseDTO> list() {
-        return comunicadoRepository.findAllByOrderByFechaPublicacionDesc().stream()
-                .map(comunicado -> toResponse(comunicado, 0, 0, 0))
-                .toList();
+        List<ComunicadoResponseDTO> items = transactionTemplate.execute(status ->
+                comunicadoRepository.findAllByOrderByFechaPublicacionDesc().stream()
+                        .map(comunicado -> toResponse(comunicado, 0, 0, 0, 0, List.of()))
+                        .toList());
+        return items != null ? items : List.of();
     }
 
-    @Transactional
     public ComunicadoResponseDTO publish(String adminEmail, ComunicadoCreateDTO dto) {
+        mailNotificationService.requireConfigured();
+
+        PublishDraft draft = transactionTemplate.execute(status -> persistComunicado(adminEmail, dto));
+        if (draft == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo publicar el comunicado");
+        }
+
+        int enviados = 0;
+        int fallidos = 0;
+        String subject = "CCISJ: " + draft.titulo();
+        String body = buildEmailBody(draft.titulo(), draft.contenido());
+        for (String email : draft.emails()) {
+            try {
+                mailNotificationService.send(email, subject, body);
+                enviados++;
+            } catch (RuntimeException exception) {
+                fallidos++;
+                LOGGER.warn("No se pudo enviar comunicado {} a {}: {}", draft.id(), email, exception.getMessage());
+            }
+        }
+
+        LOGGER.info(
+                "Comunicado {} publicado: campana={}, correosOk={}, correosFail={}, sinEmail={}",
+                draft.id(), draft.notificados(), enviados, fallidos, draft.sinEmail());
+
+        return new ComunicadoResponseDTO(
+                draft.id(),
+                draft.titulo(),
+                draft.contenido(),
+                draft.destinatario(),
+                draft.fechaPublicacion(),
+                draft.autorEmail(),
+                draft.notificados(),
+                enviados,
+                fallidos,
+                draft.sinEmail(),
+                draft.emails());
+    }
+
+    private PublishDraft persistComunicado(String adminEmail, ComunicadoCreateDTO dto) {
         User autor = requireAdmin(adminEmail);
         DestinatarioComunicado destinatario = normalizeAudience(dto.destinatario());
         String titulo = requireText(dto.titulo(), "El título del comunicado es obligatorio");
@@ -81,34 +126,39 @@ public class ComunicadoService {
 
         List<Notificacion> notificaciones = new ArrayList<>(destinatarios.size());
         Set<String> emails = new LinkedHashSet<>();
+        int sinEmail = 0;
         for (Socio socio : destinatarios) {
             User usuario = socio.getUsuario();
             if (usuario == null || !usuario.isActivo()) {
                 continue;
             }
             notificaciones.add(new Notificacion(usuario, comunicado, titulo, contenido));
-            String email = resolveEmail(socio);
+            String email = resolveContactEmail(socio);
             if (email != null) {
                 emails.add(email);
+            } else {
+                sinEmail++;
+                LOGGER.warn("Socio {} ({}) sin email de contacto ni de cuenta", socio.getId(), socio.getRazonSocial());
             }
+        }
+        if (notificaciones.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "No hay socios activos con cuenta para notificar");
         }
         notificacionRepository.saveAll(notificaciones);
+        comunicadoRepository.flush();
+        notificacionRepository.flush();
 
-        int enviados = 0;
-        int fallidos = 0;
-        String subject = "CCISJ: " + titulo;
-        String body = buildEmailBody(titulo, contenido);
-        for (String email : emails) {
-            try {
-                mailNotificationService.send(email, subject, body);
-                enviados++;
-            } catch (RuntimeException exception) {
-                fallidos++;
-                LOGGER.warn("No se pudo enviar comunicado {} a {}: {}", comunicado.getId(), email, exception.getMessage());
-            }
-        }
-
-        return toResponse(comunicado, notificaciones.size(), enviados, fallidos);
+        return new PublishDraft(
+                comunicado.getId(),
+                titulo,
+                contenido,
+                destinatario,
+                comunicado.getFechaPublicacion(),
+                autor.getEmail(),
+                notificaciones.size(),
+                sinEmail,
+                List.copyOf(emails));
     }
 
     private List<Socio> resolveAudience(DestinatarioComunicado destinatario) {
@@ -138,13 +188,14 @@ public class ComunicadoService {
                         "Se requiere una cuenta de administrador activa"));
     }
 
-    private static String resolveEmail(Socio socio) {
+    /** Prioridad: email de contacto del socio, luego email de la cuenta de acceso. */
+    static String resolveContactEmail(Socio socio) {
+        if (socio.getEmailContacto() != null && !socio.getEmailContacto().isBlank()) {
+            return socio.getEmailContacto().trim().toLowerCase(Locale.ROOT);
+        }
         User user = socio.getUsuario();
         if (user != null && user.getEmail() != null && !user.getEmail().isBlank()) {
             return user.getEmail().trim().toLowerCase(Locale.ROOT);
-        }
-        if (socio.getEmailContacto() != null && !socio.getEmailContacto().isBlank()) {
-            return socio.getEmailContacto().trim().toLowerCase(Locale.ROOT);
         }
         return null;
     }
@@ -174,7 +225,9 @@ public class ComunicadoService {
             Comunicado comunicado,
             int destinatariosNotificados,
             int correosEnviados,
-            int correosFallidos) {
+            int correosFallidos,
+            int sociosSinEmail,
+            List<String> correosDestino) {
         User autor = comunicado.getAutor();
         return new ComunicadoResponseDTO(
                 comunicado.getId(),
@@ -185,6 +238,20 @@ public class ComunicadoService {
                 autor != null ? autor.getEmail() : null,
                 destinatariosNotificados,
                 correosEnviados,
-                correosFallidos);
+                correosFallidos,
+                sociosSinEmail,
+                correosDestino);
+    }
+
+    private record PublishDraft(
+            Long id,
+            String titulo,
+            String contenido,
+            DestinatarioComunicado destinatario,
+            OffsetDateTime fechaPublicacion,
+            String autorEmail,
+            int notificados,
+            int sinEmail,
+            List<String> emails) {
     }
 }

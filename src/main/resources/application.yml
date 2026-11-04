@@ -28,9 +28,11 @@ spring:
     properties:
       "[mail.smtp.auth]": true
       "[mail.smtp.starttls.enable]": true
-      "[mail.smtp.connectiontimeout]": 5000
-      "[mail.smtp.timeout]": 5000
-      "[mail.smtp.writetimeout]": 5000
+      "[mail.smtp.starttls.required]": true
+      "[mail.smtp.connectiontimeout]": 20000
+      "[mail.smtp.timeout]": 20000
+      "[mail.smtp.writetimeout]": 20000
+      "[mail.smtp.ssl.trust]": smtp.gmail.com
 
 server:
   port: ${SERVER_PORT:8080}

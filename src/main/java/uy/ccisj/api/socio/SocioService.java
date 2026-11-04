@@ -282,12 +282,13 @@ public class SocioService {
         if (!user.isActivo()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Reactiva al socio antes de enviar las credenciales");
         }
-        String destinatario = trimToNull(user.getEmail());
+        String destinatario = trimToNull(socio.getEmailContacto());
         if (destinatario == null) {
-            destinatario = trimToNull(socio.getEmailContacto());
+            destinatario = trimToNull(user.getEmail());
         }
         if (destinatario == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El socio no tiene un email para enviarle las credenciales");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El socio no tiene email de contacto ni email de cuenta para enviarle las credenciales");
         }
 
         String passwordProvisional = PasswordPolicy.generateProvisional(socio.getRazonSocial());
