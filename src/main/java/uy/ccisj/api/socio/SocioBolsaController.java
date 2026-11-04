@@ -46,7 +46,7 @@ public class SocioBolsaController {
             @RequestParam(required = false) String rubro) {
         Long socioId = requireEligibleSocio(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, pl.nombre AS perfil_nombre, p.zona_residencia,
+                SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, p.telefono, pl.nombre AS perfil_nombre, p.zona_residencia,
                        pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                                                                                              COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                                                                                              CASE WHEN application.id IS NOT NULL THEN p.cedula_identidad END AS cedula_identidad,
@@ -75,7 +75,7 @@ public class SocioBolsaController {
                        SELECT 1 FROM perfil_rubros filter_pr
                        JOIN rubros_empleo filter_r ON filter_r.id = filter_pr.rubro_id
                        WHERE filter_pr.perfil_id = pl.id AND filter_r.nombre_rubro = ?))
-                 GROUP BY p.id, p.nombre_completo, u.email, pl.id, pl.nombre, p.zona_residencia,
+                 GROUP BY p.id, p.nombre_completo, u.email, p.telefono, pl.id, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                           p.cedula_identidad, p.fecha_nacimiento, pl.descripcion_experiencia,
                           pl.ultimo_empleo, application.id, cv.id, cv.nombre_archivo, cv.size_bytes
@@ -85,7 +85,7 @@ public class SocioBolsaController {
                     List<String> sectors = splitRubros(rs.getString("rubros"));
                     String availability = rs.getString("disponibilidad_horaria");
                     return new ApplicantProfileCard(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
-                            rs.getString("email"), initials(fullName),
+                            rs.getString("email"), rs.getString("telefono"), initials(fullName),
                             rs.getString("perfil_nombre"), sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
                             rs.getString("zona_residencia"), sectors, availability, rs.getString("libreta"),
                             rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_postulacion"),
@@ -211,7 +211,7 @@ public class SocioBolsaController {
                 : String.format(java.util.Locale.ROOT, "%.1f MB", sizeBytes / (1024.0 * 1024.0)));
     }
 
-        public record ApplicantProfileCard(Long id, Long applicantId, String fullName, String email, String initials, String profileName,
+        public record ApplicantProfileCard(Long id, Long applicantId, String fullName, String email, String phone, String initials, String profileName,
             String categoryLabel, String location, List<String> sectors, String availability, String license,
             boolean hasVehicle, boolean hasApplication, boolean hasCv, String identityCard, Integer age,
             String experienceSummary, String latestJob, String cvFileName, String cvMeta) {}

@@ -32,8 +32,8 @@ public class Comunicado {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String contenido;
 
-    @Column(name = "fecha_publicacion", nullable = false, insertable = false, updatable = false)
-    private OffsetDateTime fechaPublicacion;
+    @Column(name = "fecha_publicacion", nullable = false)
+    private OffsetDateTime fechaPublicacion = OffsetDateTime.now();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -47,6 +47,7 @@ public class Comunicado {
         this.titulo = titulo;
         this.contenido = contenido;
         this.destinatario = destinatario;
+        this.fechaPublicacion = OffsetDateTime.now();
     }
 
     public Long getId() { return id; }

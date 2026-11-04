@@ -1,0 +1,63 @@
+package uy.ccisj.api.notificacion;
+
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.notificacion.dto.NotificacionResponseDTO;
+import uy.ccisj.api.user.Role;
+import uy.ccisj.api.user.User;
+import uy.ccisj.api.user.UserRepository;
+
+@Service
+public class NotificacionService {
+    private final NotificacionRepository notificacionRepository;
+    private final UserRepository userRepository;
+
+    public NotificacionService(NotificacionRepository notificacionRepository, UserRepository userRepository) {
+        this.notificacionRepository = notificacionRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<NotificacionResponseDTO> listForSocio(String emailOrPrincipal) {
+        User user = requireSocio(emailOrPrincipal);
+        return notificacionRepository.findByUsuarioIdOrderByCreatedAtDesc(user.getId()).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional
+    public void markAllRead(String emailOrPrincipal) {
+        User user = requireSocio(emailOrPrincipal);
+        notificacionRepository.markAllRead(user.getId());
+    }
+
+    @Transactional
+    public void dismissPopups(String emailOrPrincipal) {
+        User user = requireSocio(emailOrPrincipal);
+        notificacionRepository.dismissPopups(user.getId());
+    }
+
+    private User requireSocio(String principal) {
+        return userRepository.findByEmailIgnoreCase(principal)
+                .or(() -> userRepository.findByBps(principal))
+                .or(() -> userRepository.findByCedula(principal))
+                .filter(user -> user.isActivo() && user.getRole() == Role.SOCIO)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Se requiere una cuenta de socio activa"));
+    }
+
+    private NotificacionResponseDTO toDto(Notificacion notificacion) {
+        Long comunicadoId = notificacion.getComunicado() != null ? notificacion.getComunicado().getId() : null;
+        return new NotificacionResponseDTO(
+                notificacion.getId(),
+                notificacion.getTitulo(),
+                notificacion.getCuerpo(),
+                notificacion.isLeida(),
+                notificacion.isPopup(),
+                notificacion.getCreatedAt(),
+                comunicadoId);
+    }
+}

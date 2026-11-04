@@ -36,7 +36,7 @@ public class AdminPostulanteController {
     public List<ApplicantProfile> list(Authentication authentication) {
         requireAdmin(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, pl.nombre AS perfil_nombre,
+                SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, p.telefono, pl.nombre AS perfil_nombre,
                        p.zona_residencia, pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                        COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                        p.cedula_identidad, EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer AS edad,
@@ -54,7 +54,7 @@ public class AdminPostulanteController {
                        ORDER BY activo DESC, fecha_carga DESC, id DESC
                        LIMIT 1
                   ) cv ON TRUE
-                 GROUP BY pl.id, p.id, p.nombre_completo, u.email, pl.nombre, p.zona_residencia,
+                 GROUP BY pl.id, p.id, p.nombre_completo, u.email, p.telefono, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo, p.cedula_identidad,
                           p.fecha_nacimiento, pl.descripcion_experiencia, pl.ultimo_empleo,
                           cv.id, cv.nombre_archivo, cv.size_bytes
@@ -63,7 +63,7 @@ public class AdminPostulanteController {
             String fullName = rs.getString("nombre_completo");
             List<String> sectors = splitRubros(rs.getString("rubros"));
             return new ApplicantProfile(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
-                    rs.getString("email"), initials(fullName), rs.getString("perfil_nombre"),
+                    rs.getString("email"), rs.getString("telefono"), initials(fullName), rs.getString("perfil_nombre"),
                     sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
                     rs.getString("zona_residencia"), sectors, rs.getString("disponibilidad_horaria"),
                     rs.getString("libreta"), rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_cv"),
@@ -129,7 +129,7 @@ public class AdminPostulanteController {
                 : String.format(java.util.Locale.ROOT, "%.1f MB", sizeBytes / (1024.0 * 1024.0)));
     }
 
-    public record ApplicantProfile(Long id, Long applicantId, String fullName, String email, String initials,
+    public record ApplicantProfile(Long id, Long applicantId, String fullName, String email, String phone, String initials,
             String profileName, String categoryLabel, String location, List<String> sectors, String availability,
             String license, boolean hasVehicle, boolean hasCv, String identityCard, Integer age,
             String experienceSummary, String latestJob, String cvFileName, String cvMeta) {}

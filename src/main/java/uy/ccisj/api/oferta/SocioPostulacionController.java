@@ -47,7 +47,7 @@ public class SocioPostulacionController {
     public List<ReceivedApplication> list(Authentication authentication, @PathVariable Long ofertaId) {
         Long socioId = requireEligibleSocio(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT a.id, a.estado, a.fecha, pl.id AS perfil_id, po.nombre_completo,
+                SELECT a.id, a.estado, a.fecha, pl.id AS perfil_id, po.nombre_completo, po.telefono,
                        po.cedula_identidad, po.zona_residencia, pl.nombre AS perfil_nombre,
                        pl.disponibilidad_horaria, pl.tiene_vehiculo, pl.libreta,
                        pl.ultimo_empleo, pl.descripcion_experiencia,
@@ -61,7 +61,7 @@ public class SocioPostulacionController {
                   LEFT JOIN rubros_empleo r ON r.id = pr.rubro_id
                   LEFT JOIN cvs cv ON cv.id = a.cv_id
                  WHERE a.oferta_id = ?
-                 GROUP BY a.id, a.estado, a.fecha, pl.id, po.nombre_completo,
+                 GROUP BY a.id, a.estado, a.fecha, pl.id, po.nombre_completo, po.telefono,
                           po.cedula_identidad, po.zona_residencia, pl.id, pl.nombre,
                           pl.disponibilidad_horaria, pl.tiene_vehiculo, pl.libreta,
                           pl.ultimo_empleo, pl.descripcion_experiencia, cv.id,
@@ -74,7 +74,8 @@ public class SocioPostulacionController {
                 formatDate(rs.getObject("fecha", OffsetDateTime.class)),
                 rs.getString("disponibilidad_horaria"), rs.getBoolean("tiene_vehiculo"),
                 rs.getString("libreta"), rs.getString("ultimo_empleo"), rs.getString("descripcion_experiencia"),
-                    rs.getString("cedula_identidad"), rs.getObject("cv_id", Long.class), rs.getString("nombre_archivo"),
+                rs.getString("cedula_identidad"), rs.getString("telefono"),
+                rs.getObject("cv_id", Long.class), rs.getString("nombre_archivo"),
                 cvMeta(rs.getLong("size_bytes"), rs.wasNull())), socioId, ofertaId);
     }
 
@@ -153,7 +154,7 @@ public class SocioPostulacionController {
     public record ReceivedApplication(Long id, String fullName, String initials, Long profileId,
             String profileName, String location, List<String> tags, String status, String appliedOn,
             String availability, boolean hasVehicle, String license, String latestJob, String experienceSummary,
-            String identityCard, Long cvId, String cvFileName, String cvMeta) {}
+            String identityCard, String phone, Long cvId, String cvFileName, String cvMeta) {}
 
     public record ReceivedStatus(Long id, EstadoPostulacion status) {}
     public record CvLink(String url) {}
