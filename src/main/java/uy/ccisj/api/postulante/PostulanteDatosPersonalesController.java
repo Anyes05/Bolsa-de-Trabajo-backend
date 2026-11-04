@@ -1,8 +1,5 @@
 package uy.ccisj.api.postulante;
 
-import java.util.Base64;
-import java.io.IOException;
-import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -16,14 +13,17 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.auth.ProfilePhotoService;
 
 @RestController
 @RequestMapping("/postulante/datos-personales")
 public class PostulanteDatosPersonalesController {
     private final JdbcTemplate jdbcTemplate;
+    private final ProfilePhotoService photos;
 
-    public PostulanteDatosPersonalesController(JdbcTemplate jdbcTemplate) {
+    public PostulanteDatosPersonalesController(JdbcTemplate jdbcTemplate, ProfilePhotoService photos) {
         this.jdbcTemplate = jdbcTemplate;
+        this.photos = photos;
     }
 
     @GetMapping
@@ -48,38 +48,24 @@ public class PostulanteDatosPersonalesController {
     @PostMapping("/foto")
     @ResponseStatus(HttpStatus.CREATED)
     public DatosPersonalesResponse uploadPhoto(Authentication authentication, @RequestParam("file") MultipartFile file) {
-        String type = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        if (file.isEmpty() || !type.startsWith("image/") || file.getSize() > 5 * 1024 * 1024) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser una imagen de hasta 5 MB");
-        }
         Long postulanteId = jdbcTemplate.query("""
                 SELECT p.id FROM postulantes p JOIN usuarios u ON u.id = p.usuario_id WHERE u.email = ?
                 """, rs -> rs.next() ? rs.getLong(1) : null, authentication.getName());
         if (postulanteId == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Postulante no encontrado");
-                byte[] photo;
-                try {
-                    photo = file.getBytes();
-                } catch (IOException exception) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo procesar la foto", exception);
-                }
-        jdbcTemplate.update("UPDATE postulantes SET foto_perfil = ?, foto_mime = ? WHERE id = ?",
-                    photo, type, postulanteId);
+        photos.upload(authentication.getName(), file);
         return find(authentication.getName());
     }
 
     private DatosPersonalesResponse find(String email) {
         return jdbcTemplate.query("""
                   SELECT p.nombre_completo, p.cedula_identidad, p.telefono, p.zona_residencia,
-                      p.foto_perfil, p.foto_mime, u.email
+                      u.foto_perfil, u.foto_mime, u.email
                 FROM postulantes p JOIN usuarios u ON u.id = p.usuario_id WHERE u.email = ?
                 """, rs -> rs.next() ? new DatosPersonalesResponse(rs.getString("nombre_completo"),
                 rs.getString("cedula_identidad"), rs.getString("telefono"), rs.getString("zona_residencia"),
-                rs.getString("email"), photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"))) : null, email);
+                rs.getString("email"), ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"))) : null, email);
     }
 
-    private String photoUrl(byte[] bytes, String mime) {
-        return bytes == null ? null : "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
-    }
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 
     public record DatosPersonalesRequest(String nombreCompleto, String cedulaIdentidad, String telefono, String zonaResidencia) {}
