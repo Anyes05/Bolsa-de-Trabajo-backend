@@ -21,10 +21,19 @@ public class GoogleTokenVerifier {
     private boolean configured = true;
 
     @Autowired
-    public GoogleTokenVerifier(@Value("${app.google.client-id}") String clientId) {
-        this(new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
-                .setAudience(List.of(clientId)).setAcceptableTimeSkewSeconds(0).build());
-        configured = !clientId.isBlank();
+    public GoogleTokenVerifier(@Value("${app.google.client-id:}") String clientId) {
+        this(buildVerifier(clientId == null ? "" : clientId.trim()));
+        configured = clientId != null && !clientId.isBlank();
+    }
+
+    private static GoogleIdTokenVerifier buildVerifier(String clientId) {
+        GoogleIdTokenVerifier.Builder builder = new GoogleIdTokenVerifier.Builder(
+                new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                .setAcceptableTimeSkewSeconds(0);
+        if (!clientId.isBlank()) {
+            builder.setAudience(List.of(clientId));
+        }
+        return builder.build();
     }
 
     GoogleTokenVerifier(GoogleIdTokenVerifier verifier) {

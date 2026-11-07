@@ -356,7 +356,7 @@ public class SocioService {
         mailNotificationService.send(destinatario, subject, text);
     }
 
-    private static String resolveEmailCredenciales(Socio socio, User user) {
+    private String resolveEmailCredenciales(Socio socio, User user) {
         String destinatario = trimToNull(socio.getEmailContacto());
         if (destinatario == null && user != null) {
             destinatario = trimToNull(user.getEmail());

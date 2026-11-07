@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -132,7 +133,63 @@ public class AuthService {
         return authResponse(user);
     }
 
-    private AuthResponse authResponse(User user) {
+    @Transactional
+    public AuthResponse registerGoogleApplicant(
+            GoogleRegistrationRequest request,
+            GoogleTokenVerifier.GoogleIdentity identity) {
+        var availability = registrationAvailability(identity.email(), request.identityCard());
+        if (availability.emailExists()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
+        }
+        if (availability.identityCardExists()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cédula ya está registrada");
+        }
+        if (userRepository.findByGoogleSubject(identity.subject()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cuenta de Google ya esta registrada. Inicia sesion.");
+        }
+
+        String passwordPlaceholder = passwordEncoder.encode(UUID.randomUUID().toString());
+        Long userId = insertAndReturnId(
+                """
+                INSERT INTO usuarios (email, password_hash, rol, google_subject, google_photo_url)
+                VALUES (?, ?, 'POSTULANTE', ?, ?)
+                """,
+                identity.email().trim().toLowerCase(),
+                passwordPlaceholder,
+                identity.subject(),
+                identity.fotoUrl());
+        Long applicantId = insertAndReturnId(
+                "INSERT INTO postulantes (usuario_id, nombre_completo, cedula_identidad, telefono, zona_residencia) VALUES (?, ?, ?, ?, ?)",
+                userId,
+                request.fullName(),
+                request.identityCard(),
+                request.phone(),
+                request.residenceArea());
+        Long profileId = insertAndReturnId(
+                "INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo, descripcion_experiencia) VALUES (?, ?, ?, ?, ?, ?)",
+                applicantId,
+                request.profileName(),
+                request.availability(),
+                request.hasVehicle(),
+                request.latestJob(),
+                request.experienceDescription());
+
+        String placeholders = String.join(",", Collections.nCopies(request.sectors().size(), "?"));
+        List<Long> sectorIds = jdbcTemplate.queryForList(
+                "SELECT id FROM rubros_empleo WHERE activo = true AND nombre_rubro IN (" + placeholders + ")",
+                Long.class,
+                request.sectors().toArray());
+        if (sectorIds.size() != request.sectors().stream().distinct().count()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o mas rubros no son validos");
+        }
+        sectorIds.forEach(sectorId ->
+                jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
+
+        User user = userRepository.findById(userId).orElseThrow();
+        return authResponse(user);
+    }
+
+    AuthResponse authResponse(User user) {
         return new AuthResponse(
                 jwtService.generate(user),
                 user.getEmail(),

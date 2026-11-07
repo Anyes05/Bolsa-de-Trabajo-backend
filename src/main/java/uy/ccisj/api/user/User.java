@@ -49,6 +49,12 @@ public class User {
     @Column(name = "password_provisional_hasta")
     private OffsetDateTime passwordProvisionalHasta;
 
+    @Column(name = "google_subject", unique = true, length = 255)
+    private String googleSubject;
+
+    @Column(name = "google_photo_url", columnDefinition = "TEXT")
+    private String googlePhotoUrl;
+
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY)
     private Postulante postulante;
 
@@ -85,6 +91,10 @@ public class User {
     public void setPasswordProvisionalHasta(OffsetDateTime passwordProvisionalHasta) {
         this.passwordProvisionalHasta = passwordProvisionalHasta;
     }
+    public String getGoogleSubject() { return googleSubject; }
+    public void setGoogleSubject(String googleSubject) { this.googleSubject = googleSubject; }
+    public String getGooglePhotoUrl() { return googlePhotoUrl; }
+    public void setGooglePhotoUrl(String googlePhotoUrl) { this.googlePhotoUrl = googlePhotoUrl; }
     public Postulante getPostulante() { return postulante; }
     public Socio getSocio() { return socio; }
 }
