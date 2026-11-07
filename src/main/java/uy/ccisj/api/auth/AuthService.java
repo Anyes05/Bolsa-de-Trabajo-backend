@@ -103,18 +103,6 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerApplicant(RegisterApplicantRequest request) {
-        return createApplicant(request, null, null);
-    }
-
-    @Transactional
-    public AuthResponse registerGoogleApplicant(GoogleRegistrationRequest request, GoogleTokenVerifier.GoogleIdentity identity) {
-        var applicant = new RegisterApplicantRequest(request.fullName(), request.identityCard(), request.phone(),
-                identity.email(), java.util.UUID.randomUUID().toString(), request.residenceArea(), request.profileName(),
-                request.sectors(), request.availability(), request.hasVehicle(), request.latestJob(), request.experienceDescription());
-        return createApplicant(applicant, identity.subject(), identity.fotoUrl());
-    }
-
-    private AuthResponse createApplicant(RegisterApplicantRequest request, String googleSubject, String googlePhotoUrl) {
         var availability = registrationAvailability(request.email(), request.identityCard());
         if (availability.emailExists()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
@@ -123,9 +111,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cédula ya está registrada");
         }
 
-        Long userId = insertAndReturnId("INSERT INTO usuarios (email, password_hash, rol, google_subject, google_photo_url) VALUES (?, ?, 'POSTULANTE', ?, ?)",
-                request.email().trim().toLowerCase(java.util.Locale.ROOT), passwordEncoder.encode(request.password()),
-                googleSubject, googlePhotoUrl);
+        Long userId = insertAndReturnId("INSERT INTO usuarios (email, password_hash, rol) VALUES (?, ?, 'POSTULANTE')",
+                request.email().trim().toLowerCase(), passwordEncoder.encode(request.password()));
         Long applicantId = insertAndReturnId("INSERT INTO postulantes (usuario_id, nombre_completo, cedula_identidad, telefono, zona_residencia) VALUES (?, ?, ?, ?, ?)",
                 userId, request.fullName(), request.identityCard(), request.phone(), request.residenceArea());
         Long profileId = insertAndReturnId("INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo, descripcion_experiencia) VALUES (?, ?, ?, ?, ?, ?)",
@@ -145,7 +132,7 @@ public class AuthService {
         return authResponse(user);
     }
 
-    AuthResponse authResponse(User user) {
+    private AuthResponse authResponse(User user) {
         return new AuthResponse(
                 jwtService.generate(user),
                 user.getEmail(),

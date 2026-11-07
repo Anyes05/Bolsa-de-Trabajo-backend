@@ -25,5 +25,7 @@ public record SocioResponseDTO(
         OffsetDateTime fechaBaja,
         LocalDate fechaAniversario,
         boolean activo,
-        String passwordProvisional) {
+        String passwordProvisional,
+        Boolean credencialesEnviadas,
+        String credencialesEnvioMensaje) {
 }

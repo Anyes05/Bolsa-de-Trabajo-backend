@@ -3,6 +3,8 @@ package uy.ccisj.api.socio;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +31,8 @@ import uy.ccisj.api.user.UserRepository;
 
 @Service
 public class SocioService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SocioService.class);
+
     private final SocioRepository socioRepository;
     private final UserRepository userRepository;
     private final DireccionRepository direccionRepository;
@@ -204,7 +208,9 @@ public class SocioService {
         socio.setFechaAlta(dto.fechaAlta() != null ? dto.fechaAlta() : LocalDate.now());
         socio.setFechaAniversario(dto.fechaAniversario());
         socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
-        return toResponse(socioRepository.save(socio), passwordProvisional);
+        Socio saved = socioRepository.save(socio);
+        CredencialesMailResult mailResult = trySendCredencialesEmail(saved, user, passwordProvisional);
+        return toResponse(saved, passwordProvisional, mailResult.enviadas(), mailResult.mensaje());
     }
 
     @Transactional
@@ -282,10 +288,7 @@ public class SocioService {
         if (!user.isActivo()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Reactiva al socio antes de enviar las credenciales");
         }
-        String destinatario = trimToNull(socio.getEmailContacto());
-        if (destinatario == null) {
-            destinatario = trimToNull(user.getEmail());
-        }
+        String destinatario = resolveEmailCredenciales(socio, user);
         if (destinatario == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "El socio no tiene email de contacto ni email de cuenta para enviarle las credenciales");
@@ -296,6 +299,40 @@ public class SocioService {
         applyProvisionalPasswordWindow(user);
         userRepository.save(user);
 
+        mailNotificationService.requireConfigured();
+        sendCredencialesEmail(socio, user, destinatario, passwordProvisional);
+        return new CredencialesEnviadasDTO(
+                destinatario,
+                passwordProvisional,
+                "Credenciales enviadas a " + destinatario);
+    }
+
+    /**
+     * Best-effort: nunca aborta el alta. Si falla SMTP o no hay email, el socio queda creado.
+     */
+    private CredencialesMailResult trySendCredencialesEmail(Socio socio, User user, String passwordProvisional) {
+        String destinatario = resolveEmailCredenciales(socio, user);
+        if (destinatario == null) {
+            return CredencialesMailResult.fallido(
+                    "No se envió el mail: el socio no tiene email de contacto ni de cuenta.");
+        }
+        if (!mailNotificationService.isConfigured()) {
+            return CredencialesMailResult.fallido(
+                    "No se envió el mail: el servicio de correo no está configurado. Podés reenviarlo después.");
+        }
+        try {
+            sendCredencialesEmail(socio, user, destinatario, passwordProvisional);
+            return CredencialesMailResult.ok("Credenciales enviadas automáticamente a " + destinatario);
+        } catch (Exception exception) {
+            LOGGER.warn("No se pudieron enviar credenciales al socio id={}: {}",
+                    socio.getId(), exception.getMessage());
+            return CredencialesMailResult.fallido(
+                    "El socio se creó, pero no se pudo enviar el mail (" + shortMessage(exception)
+                            + "). Podés reenviarlo desde esta pantalla.");
+        }
+    }
+
+    private void sendCredencialesEmail(Socio socio, User user, String destinatario, String passwordProvisional) {
         boolean conCedula = user.getCedula() != null && !user.getCedula().isBlank();
         String tipoUsuario = conCedula ? "cédula" : "BPS";
         String usuarioAcceso = conCedula ? user.getCedula() : user.getBps();
@@ -316,12 +353,33 @@ public class SocioService {
 
                 Este es un correo automático, por favor no lo respondas.
                 """.formatted(socio.getRazonSocial(), webUrl, tipoUsuario, usuarioAcceso, passwordProvisional);
-
         mailNotificationService.send(destinatario, subject, text);
-        return new CredencialesEnviadasDTO(
-                destinatario,
-                passwordProvisional,
-                "Credenciales enviadas a " + destinatario);
+    }
+
+    private static String resolveEmailCredenciales(Socio socio, User user) {
+        String destinatario = trimToNull(socio.getEmailContacto());
+        if (destinatario == null && user != null) {
+            destinatario = trimToNull(user.getEmail());
+        }
+        return destinatario;
+    }
+
+    private static String shortMessage(Exception exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return exception.getClass().getSimpleName();
+        }
+        return message.length() > 180 ? message.substring(0, 180) + "…" : message;
+    }
+
+    private record CredencialesMailResult(boolean enviadas, String mensaje) {
+        static CredencialesMailResult ok(String mensaje) {
+            return new CredencialesMailResult(true, mensaje);
+        }
+
+        static CredencialesMailResult fallido(String mensaje) {
+            return new CredencialesMailResult(false, mensaje);
+        }
     }
 
     private void applyProvisionalPasswordWindow(User user) {
@@ -380,10 +438,18 @@ public class SocioService {
     }
 
     private SocioResponseDTO toResponse(Socio socio) {
-        return toResponse(socio, null);
+        return toResponse(socio, null, null, null);
     }
 
     private SocioResponseDTO toResponse(Socio socio, String passwordProvisional) {
+        return toResponse(socio, passwordProvisional, null, null);
+    }
+
+    private SocioResponseDTO toResponse(
+            Socio socio,
+            String passwordProvisional,
+            Boolean credencialesEnviadas,
+            String credencialesEnvioMensaje) {
         User user = socio.getUsuario();
         Direccion direccion = socio.getDireccion();
         RubroEmpleo rubro = socio.getRubro();
@@ -412,7 +478,9 @@ public class SocioService {
                 user != null ? user.getFechaBaja() : null,
                 socio.getFechaAniversario(),
                 user == null || user.isActivo(),
-                passwordProvisional);
+                passwordProvisional,
+                credencialesEnviadas,
+                credencialesEnvioMensaje);
     }
 
     private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {

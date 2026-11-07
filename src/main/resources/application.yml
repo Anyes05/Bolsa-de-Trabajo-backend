@@ -40,8 +40,6 @@ server:
     context-path: /api
 
 app:
-  google:
-    client-id: ${GOOGLE_CLIENT_ID:}
   web-url: ${APP_WEB_URL:https://ccisj.cloud-ip.cc}
   jwt:
     secret: ${JWT_SECRET}

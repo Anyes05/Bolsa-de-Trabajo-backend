@@ -101,16 +101,8 @@ jobs:
     needs: [test, migrate]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Google OAuth configuration
-        run: |
-          if [[ ! "${GOOGLE_CLIENT_ID}" =~ ^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$ ]]; then
-            echo "Configura el secret GOOGLE_CLIENT_ID con el Client ID web de Google"
-            exit 1
-          fi
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -165,7 +157,7 @@ jobs:
 
           for attempt in 1 2 3 4 5 6; do
             if ssh -i ~/.ssh/ccisj.pem "ec2-user@${EC2_HOST}" \
-              "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' S3_BUCKET='${S3_BUCKET}' GOOGLE_CLIENT_ID='${GOOGLE_CLIENT_ID}' GMAIL_SMTP_USERNAME_B64='${GMAIL_SMTP_USERNAME_B64}' GMAIL_SMTP_APP_PASSWORD_B64='${GMAIL_SMTP_APP_PASSWORD_B64}' MAIL_FROM_B64='${MAIL_FROM_B64}' MAIL_ADMIN_RECIPIENT_B64='${MAIL_ADMIN_RECIPIENT_B64}' bash -s" <<'EOF'
+              "IMAGE_SHA_TAG='${IMAGE_SHA_TAG}' AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}' AWS_REGION='${AWS_REGION}' S3_BUCKET='${S3_BUCKET}' GMAIL_SMTP_USERNAME_B64='${GMAIL_SMTP_USERNAME_B64}' GMAIL_SMTP_APP_PASSWORD_B64='${GMAIL_SMTP_APP_PASSWORD_B64}' MAIL_FROM_B64='${MAIL_FROM_B64}' MAIL_ADMIN_RECIPIENT_B64='${MAIL_ADMIN_RECIPIENT_B64}' bash -s" <<'EOF'
           set -euo pipefail
 
           ECR_REGISTRY="${IMAGE_SHA_TAG%%/*}"
@@ -184,15 +176,6 @@ jobs:
           upsert_runtime_env GMAIL_SMTP_APP_PASSWORD "$(printf '%s' "${GMAIL_SMTP_APP_PASSWORD_B64}" | base64 --decode)"
           upsert_runtime_env MAIL_FROM "$(printf '%s' "${MAIL_FROM_B64}" | base64 --decode)"
           upsert_runtime_env MAIL_ADMIN_RECIPIENT "$(printf '%s' "${MAIL_ADMIN_RECIPIENT_B64}" | base64 --decode)"
-          upsert_runtime_env GOOGLE_CLIENT_ID "${GOOGLE_CLIENT_ID}"
-
-          if ! sudo grep -q '^      GOOGLE_CLIENT_ID:' /opt/ccisj/docker-compose.prod.yml; then
-            sudo sed -i '/^      JWT_EXPIRATION_MINUTES:/a\      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}' /opt/ccisj/docker-compose.prod.yml
-            if ! sudo grep -q '^      GOOGLE_CLIENT_ID:' /opt/ccisj/docker-compose.prod.yml; then
-              echo "No se pudo configurar GOOGLE_CLIENT_ID en Compose"
-              exit 1
-            fi
-          fi
 
           # Sincroniza credenciales/runtime de backend en cada deploy para evitar tokens vencidos.
           sudo sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${IMAGE_SHA_TAG}|" /opt/ccisj/runtime.env

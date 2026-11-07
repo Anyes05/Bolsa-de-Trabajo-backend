@@ -11,7 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
-//sdsdds
+
 @RestControllerAdvice
 public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -49,9 +49,6 @@ public class ApiExceptionHandler {
                 .toLowerCase();
         if (message.contains("email")) {
             return body(HttpStatus.CONFLICT.value(), "Ya existe una cuenta con ese correo");
-        }
-        if (message.contains("google_subject")) {
-            return body(HttpStatus.CONFLICT.value(), "Esta cuenta de Google ya esta registrada. Inicia sesion.");
         }
         if (message.contains("bps")) {
             return body(HttpStatus.CONFLICT.value(), "Ya existe un socio con ese BPS");
