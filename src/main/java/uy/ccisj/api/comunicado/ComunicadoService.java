@@ -99,6 +99,7 @@ public class ComunicadoService {
                 draft.titulo(),
                 draft.contenido(),
                 draft.destinatario(),
+                draft.popup(),
                 draft.fechaPublicacion(),
                 draft.autorEmail(),
                 draft.notificados(),
@@ -116,8 +117,9 @@ public class ComunicadoService {
         if (titulo.length() > 180) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El título no puede superar 180 caracteres");
         }
+        boolean popup = dto.popup();
 
-        Comunicado comunicado = comunicadoRepository.save(new Comunicado(autor, titulo, contenido, destinatario));
+        Comunicado comunicado = comunicadoRepository.save(new Comunicado(autor, titulo, contenido, destinatario, popup));
         List<Socio> destinatarios = resolveAudience(destinatario);
         if (destinatarios.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -132,7 +134,7 @@ public class ComunicadoService {
             if (usuario == null || !usuario.isActivo()) {
                 continue;
             }
-            notificaciones.add(new Notificacion(usuario, comunicado, titulo, contenido));
+            notificaciones.add(new Notificacion(usuario, comunicado, titulo, contenido, popup));
             String email = resolveContactEmail(socio);
             if (email != null) {
                 emails.add(email);
@@ -154,6 +156,7 @@ public class ComunicadoService {
                 titulo,
                 contenido,
                 destinatario,
+                popup,
                 comunicado.getFechaPublicacion(),
                 autor.getEmail(),
                 notificaciones.size(),
@@ -234,6 +237,7 @@ public class ComunicadoService {
                 comunicado.getTitulo(),
                 comunicado.getContenido(),
                 comunicado.getDestinatario(),
+                comunicado.isPopup(),
                 comunicado.getFechaPublicacion(),
                 autor != null ? autor.getEmail() : null,
                 destinatariosNotificados,
@@ -248,6 +252,7 @@ public class ComunicadoService {
             String titulo,
             String contenido,
             DestinatarioComunicado destinatario,
+            boolean popup,
             OffsetDateTime fechaPublicacion,
             String autorEmail,
             int notificados,

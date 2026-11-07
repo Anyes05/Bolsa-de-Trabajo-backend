@@ -9,6 +9,7 @@ public record ComunicadoResponseDTO(
         String titulo,
         String contenido,
         DestinatarioComunicado destinatario,
+        boolean popup,
         OffsetDateTime fechaPublicacion,
         String autorEmail,
         int destinatariosNotificados,

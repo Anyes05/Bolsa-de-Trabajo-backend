@@ -8,6 +8,7 @@ import uy.ccisj.api.domain.DestinatarioComunicado;
 public record ComunicadoCreateDTO(
         @NotBlank @Size(max = 180) String titulo,
         @NotBlank String contenido,
-        @NotNull DestinatarioComunicado destinatario
+        @NotNull DestinatarioComunicado destinatario,
+        boolean popup
 ) {
 }

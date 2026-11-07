@@ -46,13 +46,13 @@ public class Notificacion {
     protected Notificacion() {
     }
 
-    public Notificacion(User usuario, Comunicado comunicado, String titulo, String cuerpo) {
+    public Notificacion(User usuario, Comunicado comunicado, String titulo, String cuerpo, boolean popup) {
         this.usuario = usuario;
         this.comunicado = comunicado;
         this.titulo = titulo;
         this.cuerpo = cuerpo;
         this.leida = false;
-        this.popup = true;
+        this.popup = popup;
         this.createdAt = OffsetDateTime.now();
     }
 

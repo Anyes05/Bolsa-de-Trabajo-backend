@@ -39,14 +39,18 @@ public class Comunicado {
     @Column(nullable = false, length = 30)
     private DestinatarioComunicado destinatario = DestinatarioComunicado.TODOS;
 
+    @Column(nullable = false)
+    private boolean popup;
+
     protected Comunicado() {
     }
 
-    public Comunicado(User autor, String titulo, String contenido, DestinatarioComunicado destinatario) {
+    public Comunicado(User autor, String titulo, String contenido, DestinatarioComunicado destinatario, boolean popup) {
         this.autor = autor;
         this.titulo = titulo;
         this.contenido = contenido;
         this.destinatario = destinatario;
+        this.popup = popup;
         this.fechaPublicacion = OffsetDateTime.now();
     }
 
@@ -60,4 +64,6 @@ public class Comunicado {
     public OffsetDateTime getFechaPublicacion() { return fechaPublicacion; }
     public DestinatarioComunicado getDestinatario() { return destinatario; }
     public void setDestinatario(DestinatarioComunicado destinatario) { this.destinatario = destinatario; }
+    public boolean isPopup() { return popup; }
+    public void setPopup(boolean popup) { this.popup = popup; }
 }
