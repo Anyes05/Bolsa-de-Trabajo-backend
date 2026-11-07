@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.auth.ProfilePhotoService;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.UserRepository;
@@ -41,7 +42,7 @@ public class AdminPostulanteController {
                        COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                        p.cedula_identidad, EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer AS edad,
                        pl.descripcion_experiencia, pl.ultimo_empleo, cv.id IS NOT NULL AS tiene_cv,
-                       cv.nombre_archivo, cv.size_bytes
+                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
                   FROM perfiles_laborales pl
                   JOIN postulantes p ON p.id = pl.postulante_id
                   JOIN usuarios u ON u.id = p.usuario_id
@@ -57,7 +58,7 @@ public class AdminPostulanteController {
                  GROUP BY pl.id, p.id, p.nombre_completo, u.email, p.telefono, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo, p.cedula_identidad,
                           p.fecha_nacimiento, pl.descripcion_experiencia, pl.ultimo_empleo,
-                          cv.id, cv.nombre_archivo, cv.size_bytes
+                          cv.id, cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
                  ORDER BY p.nombre_completo, pl.id
                 """, (rs, rowNum) -> {
             String fullName = rs.getString("nombre_completo");
@@ -69,7 +70,9 @@ public class AdminPostulanteController {
                     rs.getString("libreta"), rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_cv"),
                     rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                     rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
-                    rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()));
+                    rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
+                    ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
+                            rs.getString("google_photo_url")));
         });
     }
 
@@ -132,7 +135,7 @@ public class AdminPostulanteController {
     public record ApplicantProfile(Long id, Long applicantId, String fullName, String email, String phone, String initials,
             String profileName, String categoryLabel, String location, List<String> sectors, String availability,
             String license, boolean hasVehicle, boolean hasCv, String identityCard, Integer age,
-            String experienceSummary, String latestJob, String cvFileName, String cvMeta) {}
+            String experienceSummary, String latestJob, String cvFileName, String cvMeta, String fotoUrl) {}
 
     public record ProfileCv(Long id, String fileName, String meta, boolean active, OffsetDateTime uploadedAt) {}
 

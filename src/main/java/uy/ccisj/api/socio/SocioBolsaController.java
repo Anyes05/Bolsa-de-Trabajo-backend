@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.auth.ProfilePhotoService;
 import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
@@ -48,15 +49,15 @@ public class SocioBolsaController {
         return jdbcTemplate.query("""
                 SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, p.telefono, pl.nombre AS perfil_nombre, p.zona_residencia,
                        pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
-                                                                                             COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
-                                                                                             CASE WHEN application.id IS NOT NULL THEN p.cedula_identidad END AS cedula_identidad,
-                                                                                             CASE WHEN application.id IS NOT NULL
-                                                                                                    THEN EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer END AS edad,
-                                                                                             CASE WHEN application.id IS NOT NULL THEN pl.descripcion_experiencia END AS descripcion_experiencia,
-                                                                                             CASE WHEN application.id IS NOT NULL THEN pl.ultimo_empleo END AS ultimo_empleo,
-                                                                                             application.id IS NOT NULL AS tiene_postulacion,
-                                                                                             cv.id IS NOT NULL AS tiene_cv,
-                                                                                             cv.nombre_archivo, cv.size_bytes
+                       COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
+                       CASE WHEN application.id IS NOT NULL THEN p.cedula_identidad END AS cedula_identidad,
+                       CASE WHEN application.id IS NOT NULL
+                              THEN EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer END AS edad,
+                       CASE WHEN application.id IS NOT NULL THEN pl.descripcion_experiencia END AS descripcion_experiencia,
+                       CASE WHEN application.id IS NOT NULL THEN pl.ultimo_empleo END AS ultimo_empleo,
+                       application.id IS NOT NULL AS tiene_postulacion,
+                       cv.id IS NOT NULL AS tiene_cv,
+                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
                   FROM perfiles_laborales pl
                   JOIN postulantes p ON p.id = pl.postulante_id
                   JOIN usuarios u ON u.id = p.usuario_id AND u.activo = TRUE
@@ -78,7 +79,8 @@ public class SocioBolsaController {
                  GROUP BY p.id, p.nombre_completo, u.email, p.telefono, pl.id, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo,
                           p.cedula_identidad, p.fecha_nacimiento, pl.descripcion_experiencia,
-                          pl.ultimo_empleo, application.id, cv.id, cv.nombre_archivo, cv.size_bytes
+                          pl.ultimo_empleo, application.id, cv.id, cv.nombre_archivo, cv.size_bytes,
+                          u.foto_perfil, u.foto_mime, u.google_photo_url
                  ORDER BY pl.id DESC
                 """, (rs, rowNum) -> {
                     String fullName = rs.getString("nombre_completo");
@@ -92,7 +94,9 @@ public class SocioBolsaController {
                             rs.getBoolean("tiene_cv"),
                             rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                             rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
-                            rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()));
+                            rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
+                            ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
+                                    rs.getString("google_photo_url")));
                 }, socioId, rubro == null || rubro.isBlank() ? null : rubro.trim(),
                         rubro == null || rubro.isBlank() ? null : rubro.trim());
     }
@@ -214,7 +218,7 @@ public class SocioBolsaController {
         public record ApplicantProfileCard(Long id, Long applicantId, String fullName, String email, String phone, String initials, String profileName,
             String categoryLabel, String location, List<String> sectors, String availability, String license,
             boolean hasVehicle, boolean hasApplication, boolean hasCv, String identityCard, Integer age,
-            String experienceSummary, String latestJob, String cvFileName, String cvMeta) {}
+            String experienceSummary, String latestJob, String cvFileName, String cvMeta, String fotoUrl) {}
 
         public record ProfileCv(Long id, String fileName, String meta, boolean active, java.time.OffsetDateTime uploadedAt) {}
 
