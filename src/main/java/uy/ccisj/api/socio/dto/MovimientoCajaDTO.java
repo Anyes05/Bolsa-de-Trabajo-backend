@@ -17,5 +17,7 @@ public record MovimientoCajaDTO(
         MetodoPago metodoPago,
         String referencia,
         String observaciones,
-        BigDecimal saldoFavorUtilizado) {
+        BigDecimal saldoFavorUtilizado,
+        /** Solo aplica a REINTEGRO: puntual vs recurrente (timbre/gasto). */
+        Boolean recurrente) {
 }

@@ -84,7 +84,8 @@ public class CajaService {
                     registro.metodoPago(),
                     registro.referencia(),
                     registro.observaciones(),
-                    saldoFavorUtilizado));
+                    saldoFavorUtilizado,
+                    registro.recurrente()));
         }
         List<ReintegroProgramadoDTO> reintegrosProgramados = reintegroProgramadoRepository
                 .findBySocioIdOrderByIdAsc(socioId).stream()
@@ -122,15 +123,35 @@ public class CajaService {
         validarActivo(socio);
         LocalDate fecha = LocalDate.now();
         String origen = null;
+        String tipo = dto.recurrente() ? "RECURRENTE" : "PUNTUAL";
         if (dto.recurrente()) {
             ReintegroProgramado recurrente = reintegroProgramadoRepository.saveAndFlush(new ReintegroProgramado(socio,
                     dto.concepto().trim(), dto.monto(), fecha.withDayOfMonth(1)));
             origen = origenProgramado(recurrente, fecha.withDayOfMonth(1));
         }
-        reintegroRepository.saveAndFlush(new Reintegro(socio, dto.concepto().trim(),
-                dto.monto(), fecha, SaldoCuenta.vencimiento(fecha), origen));
+        Reintegro cargo = new Reintegro(socio, dto.concepto().trim(),
+                dto.monto(), fecha, SaldoCuenta.vencimiento(fecha), origen, tipo);
+        reintegroRepository.saveAndFlush(cargo);
+        sincronizarTimbreCuotaVigente(socio, dto.monto(), dto.recurrente());
         actualizarMorosidad(socio);
         return toCuenta(socio);
+    }
+
+    /**
+     * Si el reintegro es recurrente, deja marcado el timbre en la cuota vigente
+     * para que la próxima facturación lo arrastre (RF-02).
+     */
+    private void sincronizarTimbreCuotaVigente(Socio socio, BigDecimal monto, boolean recurrente) {
+        if (!recurrente) {
+            return;
+        }
+        cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId()).ifPresent(cuota -> {
+            if (cuota.getEstado() == EstadoCuota.ANULADA) {
+                return;
+            }
+            cuota.setMontoTimbre(monto);
+            cuota.setTimbreRecurrente(true);
+        });
     }
 
     @Transactional
@@ -187,7 +208,7 @@ public class CajaService {
         if (programado.isActivo() && !periodo.isBefore(programado.getDesdePeriodo())
                 && !reintegroRepository.existsByOrigen(origen)) {
             reintegroRepository.save(new Reintegro(programado.getSocio(), programado.getConcepto(),
-                    programado.getMonto(), periodo, SaldoCuenta.vencimiento(periodo), origen));
+                    programado.getMonto(), periodo, SaldoCuenta.vencimiento(periodo), origen, "RECURRENTE"));
         }
     }
 
@@ -210,21 +231,23 @@ public class CajaService {
                 historial.add(new MovimientoCajaDTO(cuota.getId(), "CUOTA",
                         "Cuota " + YearMonth.from(cuota.getPeriodo()), cuota.getPeriodo(),
                         cuota.getFechaVencimiento(), cuota.getMonto(), BigDecimal.ZERO, BigDecimal.ZERO,
-                        BigDecimal.ZERO, null, null, null, BigDecimal.ZERO));
+                        BigDecimal.ZERO, null, null, null, BigDecimal.ZERO, null));
             }
         }
         for (Reintegro reintegro : reintegroRepository.findBySocioIdOrderByFechaAscIdAsc(socioId)) {
             if (reintegro.getCuota() == null || reintegro.getCuota().getEstado() != EstadoCuota.ANULADA) {
                 historial.add(new MovimientoCajaDTO(reintegro.getId(), "REINTEGRO", reintegro.getConcepto(),
                         reintegro.getFecha(), reintegro.getFechaVencimiento(), reintegro.getMonto(),
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, BigDecimal.ZERO));
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, BigDecimal.ZERO,
+                        reintegro.isRecurrente()));
             }
         }
         for (Pago pago : pagoRepository.findBySocioIdOrderByFechaEmisionAscIdAsc(socioId)) {
             if (pago.getCuota() == null || pago.getCuota().getEstado() != EstadoCuota.ANULADA) {
                 historial.add(new MovimientoCajaDTO(pago.getId(), "PAGO", "Pago recibido", pago.getFechaEmision(),
                         null, pago.getMontoCobrado(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                        pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones(), BigDecimal.ZERO));
+                        pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones(), BigDecimal.ZERO,
+                        null));
             }
         }
         historial.sort(Comparator.comparing(MovimientoCajaDTO::fecha)
@@ -261,6 +284,18 @@ public class CajaService {
     private CuentaCajaDTO toCuenta(Socio socio) {
         SaldoCuenta.Resultado resultado = calcularSaldo(listarHistorial(socio.getId()));
         Cuota cuota = cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId()).orElse(null);
+        List<ReintegroProgramado> programadosActivos = reintegroProgramadoRepository
+                .findBySocioIdOrderByIdAsc(socio.getId()).stream()
+                .filter(ReintegroProgramado::isActivo)
+                .toList();
+        BigDecimal montoTimbre = programadosActivos.stream()
+                .map(ReintegroProgramado::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (montoTimbre.signum() == 0 && cuota != null && cuota.getMontoTimbre() != null) {
+            montoTimbre = cuota.getMontoTimbre();
+        }
+        boolean timbreRecurrente = !programadosActivos.isEmpty()
+                || (cuota != null && cuota.isTimbreRecurrente());
         return new CuentaCajaDTO(
                 socio.getId(),
                 identificadorSocio(socio),
@@ -271,8 +306,8 @@ public class CajaService {
                 cuota == null ? null : cuota.getId(),
                 cuota == null ? null : cuota.getEstado(),
                 cuota == null ? null : cuota.getMonto(),
-                BigDecimal.ZERO,
-                false,
+                montoTimbre,
+                timbreRecurrente,
                 cuota == null ? null : cuota.getPeriodo(),
                 cuota == null ? null : cuota.getFechaVencimiento(),
                 resultado.saldo(),

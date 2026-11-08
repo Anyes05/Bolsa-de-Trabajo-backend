@@ -42,17 +42,22 @@ public class Reintegro {
     @Column(unique = true, length = 120)
     private String origen;
 
+    /** PUNTUAL | RECURRENTE — mismo criterio que la UI de reintegros/timbre. */
+    @Column(nullable = false, length = 20)
+    private String tipo = "PUNTUAL";
+
     protected Reintegro() {
     }
 
     public Reintegro(Socio socio, String concepto, BigDecimal monto, LocalDate fecha,
-                     LocalDate fechaVencimiento, String origen) {
+                     LocalDate fechaVencimiento, String origen, String tipo) {
         this.socio = socio;
         this.concepto = concepto;
         this.monto = monto;
         this.fecha = fecha;
         this.fechaVencimiento = fechaVencimiento;
         this.origen = origen;
+        this.tipo = tipo == null || tipo.isBlank() ? "PUNTUAL" : tipo.trim().toUpperCase();
     }
 
     public Long getId() { return id; }
@@ -63,4 +68,6 @@ public class Reintegro {
     public LocalDate getFecha() { return fecha; }
     public LocalDate getFechaVencimiento() { return fechaVencimiento; }
     public String getOrigen() { return origen; }
+    public String getTipo() { return tipo; }
+    public boolean isRecurrente() { return "RECURRENTE".equalsIgnoreCase(tipo); }
 }

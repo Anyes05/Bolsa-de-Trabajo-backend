@@ -79,6 +79,15 @@ public class TarifaService {
     private Cuota crearCuota(Socio socio, Tarifa tarifa, LocalDate periodo) {
         Cuota cuota = new Cuota(socio, periodo, tarifa.getMontoBase(), SaldoCuenta.vencimiento(periodo));
         cuota.setTarifa(tarifa);
+        // RF-02: si el socio tiene timbre recurrente en la cuota anterior, se arrastra.
+        cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId())
+                .filter(Cuota::isTimbreRecurrente)
+                .filter(anterior -> anterior.getMontoTimbre() != null
+                        && anterior.getMontoTimbre().signum() > 0)
+                .ifPresent(anterior -> {
+                    cuota.setMontoTimbre(anterior.getMontoTimbre());
+                    cuota.setTimbreRecurrente(true);
+                });
         return cuota;
     }
 
