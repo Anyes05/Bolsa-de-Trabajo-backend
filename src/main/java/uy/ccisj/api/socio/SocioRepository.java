@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import uy.ccisj.api.domain.EstadoMorosidad;
 
 public interface SocioRepository extends JpaRepository<Socio, Long> {
@@ -58,4 +59,19 @@ public interface SocioRepository extends JpaRepository<Socio, Long> {
               and s.esDirectivo = true
             """)
     long countDirectivosActivos(EstadoMorosidad inactivo);
+
+    @EntityGraph(attributePaths = {"usuario"})
+    @Query("""
+            select s from Socio s
+            join s.usuario u
+            where u.activo = true
+              and s.estadoMorosidad <> uy.ccisj.api.domain.EstadoMorosidad.INACTIVO
+              and s.fechaAniversario is not null
+              and month(s.fechaAniversario) = :month
+              and day(s.fechaAniversario) in :days
+            order by s.razonSocial asc
+            """)
+    List<Socio> findActivosWithAnniversaryOn(
+            @Param("month") int month,
+            @Param("days") List<Integer> days);
 }

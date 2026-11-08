@@ -49,6 +49,7 @@ public class SecurityConfig {
                     .requestMatchers("/admin/tarifas", "/admin/tarifas/**").hasRole("ADMIN")
                     .requestMatchers("/admin/postulantes", "/admin/postulantes/**").hasRole("ADMIN")
                     .requestMatchers("/admin/correo", "/admin/correo/**").hasRole("ADMIN")
+                    .requestMatchers("/admin/aniversarios", "/admin/aniversarios/**").hasRole("ADMIN")
                     .requestMatchers("/socio/directorio", "/socio/directorio/**").hasRole("SOCIO")
                     .requestMatchers("/socio/perfil", "/socio/perfil/**").hasRole("SOCIO")
                     .requestMatchers("/socio/notificaciones", "/socio/notificaciones/**").hasRole("SOCIO")

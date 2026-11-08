@@ -56,6 +56,11 @@ public class Notificacion {
         this.createdAt = OffsetDateTime.now();
     }
 
+    /** Aviso de sistema (p. ej. aniversario) sin comunicado asociado. */
+    public Notificacion(User usuario, String titulo, String cuerpo, boolean popup) {
+        this(usuario, null, titulo, cuerpo, popup);
+    }
+
     public Long getId() { return id; }
     public User getUsuario() { return usuario; }
     public Comunicado getComunicado() { return comunicado; }

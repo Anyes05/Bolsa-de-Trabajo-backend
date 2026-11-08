@@ -1,5 +1,6 @@
 package uy.ccisj.api.notificacion;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,12 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
     long countByUsuarioIdAndLeidaFalse(Long usuarioId);
 
     Optional<Notificacion> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    boolean existsByUsuarioIdAndTituloAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            Long usuarioId,
+            String titulo,
+            OffsetDateTime fromInclusive,
+            OffsetDateTime toExclusive);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Notificacion n set n.leida = true, n.popup = false where n.usuario.id = :usuarioId")
