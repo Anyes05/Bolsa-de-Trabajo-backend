@@ -200,27 +200,30 @@ jobs:
           fi
 
           # Actualiza instalaciones existentes cuyo Compose fue creado antes del soporte SMTP.
+          # Nota: no usar heredoc indentado aquí (rompe el bash -s remoto).
           if ! sudo grep -q '^      GMAIL_SMTP_USERNAME:' /opt/ccisj/docker-compose.prod.yml; then
-            cat >/tmp/ccisj-smtp-compose.sed <<'SED'
-          /      S3_BUCKET:/i\
-                GMAIL_SMTP_USERNAME: ${GMAIL_SMTP_USERNAME:-}
-                GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}
-                MAIL_FROM: ${MAIL_FROM:-}
-                MAIL_ADMIN_RECIPIENT: ${MAIL_ADMIN_RECIPIENT:-}
-          SED
+            printf '%s\n' \
+              '/      S3_BUCKET:/i\' \
+              '      GMAIL_SMTP_USERNAME: ${GMAIL_SMTP_USERNAME:-}' \
+              '      GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}' \
+              '      MAIL_FROM: ${MAIL_FROM:-}' \
+              '      MAIL_ADMIN_RECIPIENT: ${MAIL_ADMIN_RECIPIENT:-}' \
+              > /tmp/ccisj-smtp-compose.sed
             sudo sed -i -f /tmp/ccisj-smtp-compose.sed /opt/ccisj/docker-compose.prod.yml
             rm /tmp/ccisj-smtp-compose.sed
           fi
 
           # RF-19: Google OAuth client id en Compose (si faltaba en installs viejas).
           if ! sudo grep -q '^      GOOGLE_CLIENT_ID:' /opt/ccisj/docker-compose.prod.yml; then
-            cat >/tmp/ccisj-google-compose.sed <<'SED'
-          /      S3_BUCKET:/i\
-                GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-          SED
+            printf '%s\n' \
+              '/      S3_BUCKET:/i\' \
+              '      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}' \
+              > /tmp/ccisj-google-compose.sed
             sudo sed -i -f /tmp/ccisj-google-compose.sed /opt/ccisj/docker-compose.prod.yml
             rm /tmp/ccisj-google-compose.sed
           fi
+          # Si Compose ya tenía la key en runtime.env pero no en el yml de servicio, asegura la línea.
+          sudo grep -q '^GOOGLE_CLIENT_ID=' /opt/ccisj/runtime.env || true
 
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml pull backend
           sudo docker compose --env-file /opt/ccisj/runtime.env -f /opt/ccisj/docker-compose.prod.yml up -d backend
