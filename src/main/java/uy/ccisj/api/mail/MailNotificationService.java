@@ -45,22 +45,56 @@ public class MailNotificationService {
         }
     }
 
+    /** Compatibilidad: envía texto plano. Preferir {@link #send(String, String, MailTemplate.Content)}. */
     public void send(String recipient, String subject, String text) {
         send(recipient, subject, text, null);
     }
 
     public void send(String recipient, String subject, String text, String replyTo) {
+        sendInternal(recipient, subject, text, null, replyTo);
+    }
+
+    public void send(String recipient, String subject, MailTemplate.Content content) {
+        send(recipient, subject, content, null);
+    }
+
+    public void send(String recipient, String subject, MailTemplate.Content content, String replyTo) {
+        if (content == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El contenido del correo es obligatorio");
+        }
+        sendInternal(recipient, subject, content.plain(), content.html(), replyTo);
+    }
+
+    public void sendToMany(Collection<String> recipients, String subject, String text) {
+        recipients.stream().filter(recipient -> recipient != null && !recipient.isBlank())
+                .distinct().forEach(recipient -> send(recipient, subject, text));
+    }
+
+    public void sendToAdmin(String subject, String text) {
+        send(adminRecipient, subject, text);
+    }
+
+    public void sendToAdmin(String subject, MailTemplate.Content content) {
+        send(adminRecipient, subject, content);
+    }
+
+    private void sendInternal(String recipient, String subject, String plain, String html, String replyTo) {
         if (recipient == null || recipient.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El destinatario del correo es obligatorio");
         }
         requireConfigured();
         try {
+            boolean multipart = html != null && !html.isBlank();
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, multipart, "UTF-8");
             helper.setFrom(from);
             helper.setTo(recipient.trim());
             helper.setSubject(subject);
-            helper.setText(text, false);
+            if (multipart) {
+                helper.setText(plain == null ? "" : plain, html);
+            } else {
+                helper.setText(plain == null ? "" : plain, false);
+            }
             if (replyTo != null && !replyTo.isBlank()) {
                 helper.setReplyTo(replyTo.trim());
             }
@@ -73,15 +107,6 @@ public class MailNotificationService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "No se pudo enviar el correo mediante SMTP: " + rootMessage(exception), exception);
         }
-    }
-
-    public void sendToMany(Collection<String> recipients, String subject, String text) {
-        recipients.stream().filter(recipient -> recipient != null && !recipient.isBlank())
-                .distinct().forEach(recipient -> send(recipient, subject, text));
-    }
-
-    public void sendToAdmin(String subject, String text) {
-        send(adminRecipient, subject, text);
     }
 
     private static String rootMessage(Throwable exception) {

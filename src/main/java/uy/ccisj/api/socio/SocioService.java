@@ -17,6 +17,7 @@ import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.auth.PasswordPolicy;
 import uy.ccisj.api.mail.MailNotificationService;
+import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.socio.dto.CredencialesEnviadasDTO;
 import uy.ccisj.api.socio.dto.DirectorioSocioDTO;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
@@ -334,26 +335,23 @@ public class SocioService {
 
     private void sendCredencialesEmail(Socio socio, User user, String destinatario, String passwordProvisional) {
         boolean conCedula = user.getCedula() != null && !user.getCedula().isBlank();
-        String tipoUsuario = conCedula ? "cédula" : "BPS";
+        String tipoUsuario = conCedula ? "Cédula" : "BPS";
         String usuarioAcceso = conCedula ? user.getCedula() : user.getBps();
-        String subject = "CCISJ - Tus credenciales de acceso a la Bolsa de Trabajo";
-        String text = """
-                Hola, %s:
-
-                Te damos la bienvenida al sistema de Bolsa de Trabajo del Centro Comercial e Industrial de San José (CCISJ).
-
-                Tus credenciales de acceso son:
-                - Ingresar en: %s
-                - Usuario (tu %s): %s
-                - Contraseña provisional: %s
-
-                IMPORTANTE: esta contraseña es temporal. Tenés 24 horas desde la recepción de este correo para ingresar y cambiarla por una contraseña definitiva. Si vence el plazo, deberás solicitar al administrador que te genere una nueva.
-
-                La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.
-
-                Este es un correo automático, por favor no lo respondas.
-                """.formatted(socio.getRazonSocial(), webUrl, tipoUsuario, usuarioAcceso, passwordProvisional);
-        mailNotificationService.send(destinatario, subject, text);
+        String subject = "CCISJ — Tus datos para ingresar a la Bolsa de Trabajo";
+        var content = MailTemplate.build(
+                "Bienvenida a la Bolsa de Trabajo",
+                "Hola, " + (socio.getRazonSocial() == null ? "socio/a" : socio.getRazonSocial().trim()) + ":",
+                List.of(
+                        "Te creamos una cuenta en el sistema del Centro Comercial e Industrial de San José.",
+                        "Usá los datos de abajo para ingresar. La contraseña es temporal: tenés 24 horas para entrar y elegir una definitiva.",
+                        "La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial. Si se vence el plazo, pedile al administrador una nueva clave."),
+                List.of(
+                        new MailTemplate.Detail("Usuario (" + tipoUsuario + ")", usuarioAcceso),
+                        new MailTemplate.Detail("Contraseña provisional", passwordProvisional),
+                        new MailTemplate.Detail("Sitio web", webUrl)),
+                new MailTemplate.Cta("Ingresar al sistema", webUrl),
+                "Correo automático: no respondas a este mensaje.");
+        mailNotificationService.send(destinatario, subject, content);
     }
 
     private String resolveEmailCredenciales(Socio socio, User user) {

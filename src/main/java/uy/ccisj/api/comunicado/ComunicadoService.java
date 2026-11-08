@@ -78,8 +78,8 @@ public class ComunicadoService {
 
         int enviados = 0;
         int fallidos = 0;
-        String subject = "CCISJ: " + draft.titulo();
-        String body = buildEmailBody(draft.titulo(), draft.contenido());
+        String subject = "CCISJ — " + draft.titulo();
+        var body = buildEmailBody(draft.titulo(), draft.contenido());
         for (String email : draft.emails()) {
             try {
                 mailNotificationService.send(email, subject, body);
@@ -203,18 +203,14 @@ public class ComunicadoService {
         return null;
     }
 
-    private static String buildEmailBody(String titulo, String contenido) {
-        return """
-                CENTRO COMERCIAL E INDUSTRIAL DE SAN JOSÉ
-
-                %s
-
-                %s
-
-                ---
-                Este aviso también está disponible en la campana de notificaciones de tu panel de socio.
-                Artigas 532, San José de Mayo, Uruguay
-                """.formatted(titulo, contenido);
+    private static uy.ccisj.api.mail.MailTemplate.Content buildEmailBody(String titulo, String contenido) {
+        return uy.ccisj.api.mail.MailTemplate.build(
+                titulo,
+                null,
+                java.util.List.of(contenido),
+                java.util.List.of(),
+                null,
+                "También podés leer este aviso en la campana de notificaciones de tu panel de socio.");
     }
 
     private static String requireText(String value, String message) {

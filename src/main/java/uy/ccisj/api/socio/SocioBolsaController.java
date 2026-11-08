@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
 import uy.ccisj.api.mail.MailNotificationService;
+import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.UserRepository;
@@ -150,21 +151,27 @@ public class SocioBolsaController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró un correo de contacto para esta notificación");
         }
 
-        String result = request.selected() ? "ha sido seleccionado/a" : "no ha sido seleccionado/a";
-        String subject = "Actualización de tu perfil en la Bolsa de Empleo CCISJ";
-        String text = """
-            Hola %s,
-
-            %s te informa que tu perfil %s para continuar en su proceso de selección.
-
-            Puedes responder a este correo para comunicarte directamente con %s.
-            Correo de contacto: %s
-
-            Saludos,
-            Bolsa de Empleo CCISJ
-            """.formatted(recipient.applicantName(), recipient.socioName(), result,
-            recipient.socioName(), recipient.socioEmail());
-        mailNotificationService.send(recipient.applicantEmail(), subject, text, recipient.socioEmail());
+        boolean selected = request.selected();
+        String subject = selected
+                ? "CCISJ — Buenas noticias sobre tu postulación"
+                : "CCISJ — Actualización sobre tu postulación";
+        String outcome = selected
+                ? "fuiste seleccionado/a para continuar en el proceso de selección."
+                : "en esta ocasión no fuiste seleccionado/a para continuar.";
+        var content = MailTemplate.build(
+                selected ? "Avance en el proceso de selección" : "Actualización de tu postulación",
+                "Hola, " + recipient.applicantName() + ":",
+                java.util.List.of(
+                        recipient.socioName() + " te informa que " + outcome,
+                        "Si querés escribirle a la empresa, respondé este correo: la respuesta llega directo a "
+                                + recipient.socioName() + "."),
+                java.util.List.of(
+                        new MailTemplate.Detail("Empresa", recipient.socioName()),
+                        new MailTemplate.Detail("Resultado", selected ? "Seleccionado/a" : "No seleccionado/a"),
+                        new MailTemplate.Detail("Correo de la empresa", recipient.socioEmail())),
+                null,
+                "Bolsa de Empleo · Centro Comercial e Industrial de San José.");
+        mailNotificationService.send(recipient.applicantEmail(), subject, content, recipient.socioEmail());
         return new ContactNotification("Notificación enviada a " + recipient.applicantEmail());
         }
 

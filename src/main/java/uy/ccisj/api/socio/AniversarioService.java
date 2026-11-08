@@ -77,7 +77,7 @@ public class AniversarioService {
                 continue;
             }
             try {
-                mailNotificationService.send(email, "CCISJ: " + TITULO, buildEmail(cuerpo));
+                mailNotificationService.send(email, "CCISJ — " + TITULO, buildEmail(socio.getRazonSocial()));
                 mailsOk++;
             } catch (RuntimeException exception) {
                 mailsFail++;
@@ -116,16 +116,17 @@ public class AniversarioService {
                 """.formatted(nombre);
     }
 
-    private static String buildEmail(String cuerpo) {
-        return """
-                CENTRO COMERCIAL E INDUSTRIAL DE SAN JOSÉ
-
-                %s
-
-                ---
-                Este aviso también está disponible en la campana de notificaciones de tu panel de socio.
-                Artigas 532, San José de Mayo, Uruguay
-                """.formatted(cuerpo.trim());
+    private static uy.ccisj.api.mail.MailTemplate.Content buildEmail(String razonSocial) {
+        String nombre = razonSocial == null || razonSocial.isBlank() ? "socio/a" : razonSocial.trim();
+        return uy.ccisj.api.mail.MailTemplate.build(
+                "¡Feliz aniversario!",
+                "Hola, " + nombre + ":",
+                java.util.List.of(
+                        "Desde el Centro Comercial e Industrial de San José queremos saludarte por tu aniversario.",
+                        "Gracias por formar parte de nuestra comunidad. ¡Que tengas un excelente día!"),
+                java.util.List.of(),
+                null,
+                "También vas a ver este saludo en la campana de notificaciones de tu panel de socio.");
     }
 
     private static String resolveContactEmail(Socio socio) {

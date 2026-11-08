@@ -93,7 +93,13 @@ public class RetencionPermanenciaService {
                 continue;
             }
             try {
-                mailNotificationService.send(email, "CCISJ: " + TITULO, buildEmail(cuerpo));
+                mailNotificationService.send(
+                        email,
+                        "CCISJ — Confirmá tu permanencia en la Bolsa",
+                        buildEmail(
+                                postulante.getNombreCompleto(),
+                                postulante.getRetencionDeadlineAt(),
+                                token));
                 mailsOk++;
             } catch (RuntimeException exception) {
                 mailsFail++;
@@ -205,15 +211,24 @@ public class RetencionPermanenciaService {
                 """.formatted(quien, hasta, link);
     }
 
-    private static String buildEmail(String cuerpo) {
-        return """
-                CENTRO COMERCIAL E INDUSTRIAL DE SAN JOSÉ
-
-                %s
-
-                ---
-                Artigas 532, San José de Mayo, Uruguay
-                """.formatted(cuerpo.trim());
+    private uy.ccisj.api.mail.MailTemplate.Content buildEmail(
+            String nombre, OffsetDateTime deadline, String token) {
+        String quien = nombre == null || nombre.isBlank() ? "postulante" : nombre.trim();
+        String hasta = deadline == null
+                ? "pronto"
+                : deadline.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String link = webUrl + "/permanencia?token=" + token;
+        return uy.ccisj.api.mail.MailTemplate.build(
+                "Confirmá tu permanencia",
+                "Hola, " + quien + ":",
+                java.util.List.of(
+                        "Hace más de 2 meses que no ingresás a la Bolsa de Empleo del CCISJ.",
+                        "Para seguir visible ante las empresas socias, confirmá tu permanencia antes de la fecha límite.",
+                        "Si no confirmás a tiempo, tu perfil dejará de mostrarse en la bolsa."),
+                java.util.List.of(
+                        new uy.ccisj.api.mail.MailTemplate.Detail("Fecha límite", hasta)),
+                new uy.ccisj.api.mail.MailTemplate.Cta("Confirmar permanencia", link),
+                "También podés confirmar iniciando sesión en la Bolsa de Empleo.");
     }
 
     public record RetencionRunResult(int avisos, int mailsOk, int mailsFail, int ocultados) {}

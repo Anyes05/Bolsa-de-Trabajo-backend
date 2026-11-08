@@ -28,7 +28,12 @@ public class AdminMailController {
         if (!isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere una cuenta de administrador activa");
         }
-        mailNotificationService.sendToAdmin("Prueba SMTP CCISJ",
-                "El servicio SMTP de CCISJ se configuró correctamente.");
+        mailNotificationService.sendToAdmin(
+                "Prueba SMTP CCISJ",
+                MailTemplate.simple(
+                        "Prueba de correo",
+                        "Hola,",
+                        "El servicio de correo del CCISJ está configurado correctamente.",
+                        "Si recibiste este mensaje, Gmail SMTP funciona bien."));
     }
 }
