@@ -199,7 +199,7 @@ public class RetencionPermanenciaService {
                 Podés hacerlo iniciando sesión o con este enlace:
                 %s
 
-                Si no confirmás, tu perfil dejará de mostrarse en la bolsa (el administrador podrá seguir viéndolo).
+                Si no confirmás, tu perfil dejará de mostrarse en la bolsa.
 
                 Equipo CCISJ
                 """.formatted(quien, hasta, link);
