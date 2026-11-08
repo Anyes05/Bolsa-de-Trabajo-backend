@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.postulante.PostulanteRepository;
+import uy.ccisj.api.postulante.RetencionPermanenciaService;
 import uy.ccisj.api.socio.Socio;
 import uy.ccisj.api.socio.SocioRepository;
 import uy.ccisj.api.user.Role;
@@ -28,6 +29,7 @@ public class AuthService {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RetencionPermanenciaService retencionPermanenciaService;
 
     public AuthService(
             UserRepository userRepository,
@@ -35,15 +37,18 @@ public class AuthService {
             SocioRepository socioRepository,
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService) {
+            JwtService jwtService,
+            RetencionPermanenciaService retencionPermanenciaService) {
         this.userRepository = userRepository;
         this.postulanteRepository = postulanteRepository;
         this.socioRepository = socioRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.retencionPermanenciaService = retencionPermanenciaService;
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = resolveLoginUser(request)
                 .filter(User::isActivo)
@@ -51,6 +56,7 @@ public class AuthService {
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas"));
         assertProvisionalPasswordStillValid(user);
+        retencionPermanenciaService.touchActividad(user);
         return authResponse(user);
     }
 

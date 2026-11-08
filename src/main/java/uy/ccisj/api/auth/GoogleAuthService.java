@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.postulante.RetencionPermanenciaService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -18,15 +19,18 @@ public class GoogleAuthService {
     private final JwtService jwt;
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwords;
+    private final RetencionPermanenciaService retencionPermanenciaService;
 
     public GoogleAuthService(GoogleTokenVerifier verifier, UserRepository users, AuthService auth,
-            JwtService jwt, JdbcTemplate jdbc, PasswordEncoder passwords) {
+            JwtService jwt, JdbcTemplate jdbc, PasswordEncoder passwords,
+            RetencionPermanenciaService retencionPermanenciaService) {
         this.verifier = verifier;
         this.users = users;
         this.auth = auth;
         this.jwt = jwt;
         this.jdbc = jdbc;
         this.passwords = passwords;
+        this.retencionPermanenciaService = retencionPermanenciaService;
     }
 
     @Transactional
@@ -68,6 +72,7 @@ public class GoogleAuthService {
 
     private GoogleAuthResult login(User user) {
         requireApplicant(user);
+        retencionPermanenciaService.touchActividad(user);
         return new GoogleAuthResult("LOGIN", auth.authResponse(user), null, null, null, null);
     }
 

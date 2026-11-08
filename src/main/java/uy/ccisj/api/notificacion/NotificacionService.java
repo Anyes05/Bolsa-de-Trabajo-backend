@@ -22,15 +22,53 @@ public class NotificacionService {
 
     @Transactional(readOnly = true)
     public List<NotificacionResponseDTO> listForSocio(String emailOrPrincipal) {
-        User user = requireSocio(emailOrPrincipal);
+        return listForRole(emailOrPrincipal, Role.SOCIO);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NotificacionResponseDTO> listForPostulante(String emailOrPrincipal) {
+        return listForRole(emailOrPrincipal, Role.POSTULANTE);
+    }
+
+    @Transactional
+    public NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id) {
+        return markOneRead(emailOrPrincipal, id, Role.SOCIO);
+    }
+
+    @Transactional
+    public NotificacionResponseDTO markOneReadPostulante(String emailOrPrincipal, Long id) {
+        return markOneRead(emailOrPrincipal, id, Role.POSTULANTE);
+    }
+
+    @Transactional
+    public void markAllRead(String emailOrPrincipal) {
+        markAllRead(emailOrPrincipal, Role.SOCIO);
+    }
+
+    @Transactional
+    public void markAllReadPostulante(String emailOrPrincipal) {
+        markAllRead(emailOrPrincipal, Role.POSTULANTE);
+    }
+
+    @Transactional
+    public void dismissPopups(String emailOrPrincipal) {
+        dismissPopups(emailOrPrincipal, Role.SOCIO);
+    }
+
+    @Transactional
+    public void dismissPopupsPostulante(String emailOrPrincipal) {
+        dismissPopups(emailOrPrincipal, Role.POSTULANTE);
+    }
+
+    private List<NotificacionResponseDTO> listForRole(String emailOrPrincipal, Role role) {
+        User user = requireRole(emailOrPrincipal, role);
         return notificacionRepository.findByUsuarioIdOrderByCreatedAtDesc(user.getId()).stream()
                 .map(this::toDto)
                 .toList();
     }
 
-    @Transactional
-    public NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id) {
-        User user = requireSocio(emailOrPrincipal);
+    private NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id, Role role) {
+        User user = requireRole(emailOrPrincipal, role);
         Notificacion notificacion = notificacionRepository.findByIdAndUsuarioId(id, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificación no encontrada"));
         notificacion.setLeida(true);
@@ -38,25 +76,23 @@ public class NotificacionService {
         return toDto(notificacionRepository.save(notificacion));
     }
 
-    @Transactional
-    public void markAllRead(String emailOrPrincipal) {
-        User user = requireSocio(emailOrPrincipal);
+    private void markAllRead(String emailOrPrincipal, Role role) {
+        User user = requireRole(emailOrPrincipal, role);
         notificacionRepository.markAllRead(user.getId());
     }
 
-    @Transactional
-    public void dismissPopups(String emailOrPrincipal) {
-        User user = requireSocio(emailOrPrincipal);
+    private void dismissPopups(String emailOrPrincipal, Role role) {
+        User user = requireRole(emailOrPrincipal, role);
         notificacionRepository.dismissPopups(user.getId());
     }
 
-    private User requireSocio(String principal) {
+    private User requireRole(String principal, Role role) {
         return userRepository.findByEmailIgnoreCase(principal)
                 .or(() -> userRepository.findByBps(principal))
                 .or(() -> userRepository.findByCedula(principal))
-                .filter(user -> user.isActivo() && user.getRole() == Role.SOCIO)
+                .filter(user -> user.isActivo() && user.getRole() == role)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Se requiere una cuenta de socio activa"));
+                        "Se requiere una cuenta activa con el rol adecuado"));
     }
 
     private NotificacionResponseDTO toDto(Notificacion notificacion) {

@@ -72,7 +72,7 @@ class ProfilePhotoDatabaseTest {
         var passwordEncoder = new BCryptPasswordEncoder();
         var jwt = mock(JwtService.class);
         var auth = spy(new AuthService(users, mock(PostulanteRepository.class), mock(SocioRepository.class),
-                jdbc, passwordEncoder, jwt));
+                jdbc, passwordEncoder, jwt, mock(uy.ccisj.api.postulante.RetencionPermanenciaService.class)));
         doReturn(new AuthResponse("test-session", "google-demo@gmail.com", Role.POSTULANTE, "Google Demo", null, false))
                 .when(auth).authResponse(any(User.class));
         String googlePhoto = "https://lh3.googleusercontent.com/demo";
@@ -81,7 +81,8 @@ class ProfilePhotoDatabaseTest {
         String sector = jdbc.queryForObject("SELECT nombre_rubro FROM rubros_empleo WHERE activo = true ORDER BY id LIMIT 1", String.class);
         var request = new GoogleRegistrationRequest("registration-only", "Edited Google Name", "google-card", "091111111",
                 "Test", "Google Profile", java.util.List.of(sector), "FULL_TIME", false, "", "");
-        var google = new GoogleAuthService(mock(GoogleTokenVerifier.class), users, auth, jwt, jdbc, passwordEncoder);
+        var google = new GoogleAuthService(mock(GoogleTokenVerifier.class), users, auth, jwt, jdbc, passwordEncoder,
+                mock(uy.ccisj.api.postulante.RetencionPermanenciaService.class));
         assertEquals("test-session", google.register(request).token());
         assertEquals(identity.subject(), jdbc.queryForObject("SELECT google_subject FROM usuarios WHERE email = ?",
                 String.class, identity.email()));

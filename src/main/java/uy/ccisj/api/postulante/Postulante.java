@@ -1,6 +1,7 @@
 package uy.ccisj.api.postulante;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import jakarta.persistence.CascadeType;
@@ -47,6 +48,18 @@ public class Postulante {
     @Column(nullable = false)
     private boolean visible = true;
 
+    @Column(name = "ultima_actividad_at", nullable = false)
+    private OffsetDateTime ultimaActividadAt = OffsetDateTime.now();
+
+    @Column(name = "retencion_avisado_at")
+    private OffsetDateTime retencionAvisadoAt;
+
+    @Column(name = "retencion_deadline_at")
+    private OffsetDateTime retencionDeadlineAt;
+
+    @Column(name = "retencion_token", length = 64)
+    private String retencionToken;
+
     @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
 
@@ -91,6 +104,14 @@ public class Postulante {
     public void setZonaResidencia(String zonaResidencia) { this.zonaResidencia = zonaResidencia; }
     public boolean isVisible() { return visible; }
     public void setVisible(boolean visible) { this.visible = visible; }
+    public OffsetDateTime getUltimaActividadAt() { return ultimaActividadAt; }
+    public void setUltimaActividadAt(OffsetDateTime ultimaActividadAt) { this.ultimaActividadAt = ultimaActividadAt; }
+    public OffsetDateTime getRetencionAvisadoAt() { return retencionAvisadoAt; }
+    public void setRetencionAvisadoAt(OffsetDateTime retencionAvisadoAt) { this.retencionAvisadoAt = retencionAvisadoAt; }
+    public OffsetDateTime getRetencionDeadlineAt() { return retencionDeadlineAt; }
+    public void setRetencionDeadlineAt(OffsetDateTime retencionDeadlineAt) { this.retencionDeadlineAt = retencionDeadlineAt; }
+    public String getRetencionToken() { return retencionToken; }
+    public void setRetencionToken(String retencionToken) { this.retencionToken = retencionToken; }
     public LocalDate getFechaNacimiento() { return fechaNacimiento; }
     public void setFechaNacimiento(LocalDate fechaNacimiento) { this.fechaNacimiento = fechaNacimiento; }
     public Genero getGenero() { return genero; }

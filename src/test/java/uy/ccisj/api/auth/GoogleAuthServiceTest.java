@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.postulante.RetencionPermanenciaService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -21,7 +22,8 @@ class GoogleAuthServiceTest {
     private final JwtService jwt = mock(JwtService.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final PasswordEncoder passwords = mock(PasswordEncoder.class);
-    private final GoogleAuthService service = new GoogleAuthService(verifier, users, auth, jwt, jdbc, passwords);
+    private final RetencionPermanenciaService retencion = mock(RetencionPermanenciaService.class);
+    private final GoogleAuthService service = new GoogleAuthService(verifier, users, auth, jwt, jdbc, passwords, retencion);
     private final GoogleTokenVerifier.GoogleIdentity identity =
             new GoogleTokenVerifier.GoogleIdentity("subject", "demo@gmail.com", "Demo", null, true);
 

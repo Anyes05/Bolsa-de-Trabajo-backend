@@ -29,7 +29,8 @@ public class GoogleTokenVerifier {
     private static GoogleIdTokenVerifier buildVerifier(String clientId) {
         GoogleIdTokenVerifier.Builder builder = new GoogleIdTokenVerifier.Builder(
                 new NetHttpTransport(), GsonFactory.getDefaultInstance())
-                .setAcceptableTimeSkewSeconds(0);
+                // 300s = default de Google; 0 rompe con desfase de reloj del servidor.
+                .setAcceptableTimeSkewSeconds(300);
         if (!clientId.isBlank()) {
             builder.setAudience(List.of(clientId));
         }

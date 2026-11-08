@@ -39,6 +39,8 @@ public class SecurityConfig {
                             "/auth/register/availability",
                             "/auth/google",
                             "/auth/google/**",
+                            "/auth/permanencia",
+                            "/auth/permanencia/**",
                             "/sectors",
                             "/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -50,9 +52,12 @@ public class SecurityConfig {
                     .requestMatchers("/admin/postulantes", "/admin/postulantes/**").hasRole("ADMIN")
                     .requestMatchers("/admin/correo", "/admin/correo/**").hasRole("ADMIN")
                     .requestMatchers("/admin/aniversarios", "/admin/aniversarios/**").hasRole("ADMIN")
+                    .requestMatchers("/admin/retencion", "/admin/retencion/**").hasRole("ADMIN")
                     .requestMatchers("/socio/directorio", "/socio/directorio/**").hasRole("SOCIO")
                     .requestMatchers("/socio/perfil", "/socio/perfil/**").hasRole("SOCIO")
                     .requestMatchers("/socio/notificaciones", "/socio/notificaciones/**").hasRole("SOCIO")
+                    .requestMatchers("/postulante/notificaciones", "/postulante/notificaciones/**").hasRole("POSTULANTE")
+                    .requestMatchers("/postulante/permanencia", "/postulante/permanencia/**").hasRole("POSTULANTE")
             .anyRequest().authenticated())
         .exceptionHandling(exceptions -> exceptions
             .authenticationEntryPoint((request, response, authException) -> {
