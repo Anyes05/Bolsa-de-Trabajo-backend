@@ -42,7 +42,8 @@ public class AdminPostulanteController {
                        COALESCE(string_agg(DISTINCT r.nombre_rubro, '|'), '') AS rubros,
                        p.cedula_identidad, EXTRACT(YEAR FROM age(current_date, p.fecha_nacimiento))::integer AS edad,
                        pl.descripcion_experiencia, pl.ultimo_empleo, cv.id IS NOT NULL AS tiene_cv,
-                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
+                       cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url,
+                       u.activo AS cuenta_activa, p.visible AS visible_en_bolsa, pl.visible AS perfil_visible
                   FROM perfiles_laborales pl
                   JOIN postulantes p ON p.id = pl.postulante_id
                   JOIN usuarios u ON u.id = p.usuario_id
@@ -58,11 +59,15 @@ public class AdminPostulanteController {
                  GROUP BY pl.id, p.id, p.nombre_completo, u.email, p.telefono, pl.nombre, p.zona_residencia,
                           pl.disponibilidad_horaria, pl.libreta, pl.tiene_vehiculo, p.cedula_identidad,
                           p.fecha_nacimiento, pl.descripcion_experiencia, pl.ultimo_empleo,
-                          cv.id, cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url
+                          cv.id, cv.nombre_archivo, cv.size_bytes, u.foto_perfil, u.foto_mime, u.google_photo_url,
+                          u.activo, p.visible, pl.visible
                  ORDER BY p.nombre_completo, pl.id
                 """, (rs, rowNum) -> {
             String fullName = rs.getString("nombre_completo");
             List<String> sectors = splitRubros(rs.getString("rubros"));
+            boolean cuentaActiva = rs.getBoolean("cuenta_activa");
+            boolean visibleEnBolsa = rs.getBoolean("visible_en_bolsa");
+            boolean perfilVisible = rs.getBoolean("perfil_visible");
             return new ApplicantProfile(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
                     rs.getString("email"), rs.getString("telefono"), initials(fullName), rs.getString("perfil_nombre"),
                     sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
@@ -72,8 +77,18 @@ public class AdminPostulanteController {
                     rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
                     rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
                     ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
-                            rs.getString("google_photo_url")));
+                            rs.getString("google_photo_url")),
+                    cuentaActiva, visibleEnBolsa, perfilVisible,
+                    estadoBolsa(cuentaActiva, visibleEnBolsa));
         });
+    }
+
+    /** Activo = cuenta activa y visible en bolsa (RF-13). */
+    private static String estadoBolsa(boolean cuentaActiva, boolean visibleEnBolsa) {
+        if (!cuentaActiva) {
+            return "INACTIVO";
+        }
+        return visibleEnBolsa ? "ACTIVO" : "INACTIVO";
     }
 
     @GetMapping("/{profileId}/cvs")
@@ -135,7 +150,8 @@ public class AdminPostulanteController {
     public record ApplicantProfile(Long id, Long applicantId, String fullName, String email, String phone, String initials,
             String profileName, String categoryLabel, String location, List<String> sectors, String availability,
             String license, boolean hasVehicle, boolean hasCv, String identityCard, Integer age,
-            String experienceSummary, String latestJob, String cvFileName, String cvMeta, String fotoUrl) {}
+            String experienceSummary, String latestJob, String cvFileName, String cvMeta, String fotoUrl,
+            boolean cuentaActiva, boolean visibleEnBolsa, boolean perfilVisible, String estado) {}
 
     public record ProfileCv(Long id, String fileName, String meta, boolean active, OffsetDateTime uploadedAt) {}
 
