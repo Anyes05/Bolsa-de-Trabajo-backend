@@ -81,7 +81,7 @@ public class SocioBolsaController {
                       ORDER BY a.fecha DESC LIMIT 1
                   ) application ON TRUE
                   LEFT JOIN cvs cv ON cv.id = application.cv_id
-                 WHERE pl.visible = TRUE AND p.visible = TRUE
+                 WHERE pl.visible = TRUE AND p.visible = TRUE AND p.busqueda_pausada = FALSE
                    AND (CAST(? AS VARCHAR) IS NULL OR EXISTS (
                        SELECT 1 FROM perfil_rubros filter_pr
                        JOIN rubros_empleo filter_r ON filter_r.id = filter_pr.rubro_id

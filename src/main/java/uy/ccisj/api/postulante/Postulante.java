@@ -48,6 +48,9 @@ public class Postulante {
     @Column(nullable = false)
     private boolean visible = true;
 
+    @Column(name = "busqueda_pausada", nullable = false, insertable = false, updatable = false)
+    private boolean busquedaPausada;
+
     @Column(name = "ultima_actividad_at", nullable = false)
     private OffsetDateTime ultimaActividadAt = OffsetDateTime.now();
 
@@ -104,6 +107,7 @@ public class Postulante {
     public void setZonaResidencia(String zonaResidencia) { this.zonaResidencia = zonaResidencia; }
     public boolean isVisible() { return visible; }
     public void setVisible(boolean visible) { this.visible = visible; }
+    public boolean isBusquedaPausada() { return busquedaPausada; }
     public OffsetDateTime getUltimaActividadAt() { return ultimaActividadAt; }
     public void setUltimaActividadAt(OffsetDateTime ultimaActividadAt) { this.ultimaActividadAt = ultimaActividadAt; }
     public OffsetDateTime getRetencionAvisadoAt() { return retencionAvisadoAt; }

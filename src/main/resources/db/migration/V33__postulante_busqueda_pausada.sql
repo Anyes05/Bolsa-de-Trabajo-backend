@@ -1,0 +1,2 @@
+ALTER TABLE postulantes
+    ADD COLUMN busqueda_pausada BOOLEAN NOT NULL DEFAULT FALSE;

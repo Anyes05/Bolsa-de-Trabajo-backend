@@ -58,6 +58,7 @@ public class SecurityConfig {
                     .requestMatchers("/socio/notificaciones", "/socio/notificaciones/**").hasRole("SOCIO")
                     .requestMatchers("/postulante/notificaciones", "/postulante/notificaciones/**").hasRole("POSTULANTE")
                     .requestMatchers("/postulante/permanencia", "/postulante/permanencia/**").hasRole("POSTULANTE")
+                    .requestMatchers("/postulante/disponibilidad-laboral").hasRole("POSTULANTE")
             .anyRequest().authenticated())
         .exceptionHandling(exceptions -> exceptions
             .authenticationEntryPoint((request, response, authException) -> {
