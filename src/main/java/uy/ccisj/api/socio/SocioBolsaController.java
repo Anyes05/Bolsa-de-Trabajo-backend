@@ -2,6 +2,9 @@ package uy.ccisj.api.socio;
 
 import java.time.Duration;
 import java.util.List;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -135,51 +138,78 @@ public class SocioBolsaController {
         return new CvLink(storageService.presignedDownloadUrl(key, Duration.ofMinutes(presignedMinutes)));
     }
 
+    @GetMapping("/postulantes/{postulanteId}/postulaciones")
+    public List<ContactApplication> contactApplications(Authentication authentication, @PathVariable Long postulanteId) {
+        Long socioId = requireEligibleSocio(authentication.getName());
+        return jdbcTemplate.query("""
+                SELECT o.id AS oferta_id, o.titulo AS oferta_titulo, pl.id AS perfil_id, pl.nombre AS perfil_nombre
+                  FROM postulaciones a
+                  JOIN ofertas_empleo o ON o.id = a.oferta_id AND o.socio_id = ?
+                  JOIN perfiles_laborales pl ON pl.id = a.perfil_laboral_id AND pl.visible = TRUE
+                  JOIN postulantes p ON p.id = a.postulante_id AND p.id = pl.postulante_id AND p.visible = TRUE
+                  JOIN usuarios u ON u.id = p.usuario_id AND u.activo = TRUE
+                 WHERE p.id = ?
+                 ORDER BY a.fecha DESC, a.id DESC
+                """, (rs, rowNum) -> new ContactApplication(
+                        rs.getLong("oferta_id"), rs.getString("oferta_titulo"),
+                        rs.getLong("perfil_id"), rs.getString("perfil_nombre")), socioId, postulanteId);
+    }
+
         @PostMapping("/{profileId}/notificacion")
         @Transactional
         public ContactNotification notifyApplicant(Authentication authentication, @PathVariable Long profileId,
-            @RequestBody ContactNotificationRequest request) {
+            @Valid @RequestBody ContactNotificationRequest request) {
         Long socioId = requireEligibleSocio(authentication.getName());
         ContactRecipient recipient = jdbcTemplate.query("""
             SELECT u.id AS postulante_usuario_id, p.nombre_completo AS postulante_nombre, u.email AS postulante_email,
-                   s.razon_social, COALESCE(NULLIF(s.email_contacto, ''), socio_usuario.email) AS socio_email
+                   s.razon_social, COALESCE(NULLIF(s.email_contacto, ''), socio_usuario.email) AS socio_email,
+                   o.titulo AS oferta_titulo
               FROM perfiles_laborales pl
               JOIN postulantes p ON p.id = pl.postulante_id AND p.visible = TRUE
               JOIN usuarios u ON u.id = p.usuario_id AND u.activo = TRUE
               JOIN socios s ON s.id = ?
               JOIN usuarios socio_usuario ON socio_usuario.id = s.usuario_id AND socio_usuario.activo = TRUE
+              JOIN postulaciones a ON a.perfil_laboral_id = pl.id AND a.postulante_id = p.id
+              JOIN ofertas_empleo o ON o.id = a.oferta_id AND o.socio_id = s.id AND o.id = ?
              WHERE pl.id = ? AND pl.visible = TRUE
             """, rs -> rs.next()
                 ? new ContactRecipient(rs.getLong("postulante_usuario_id"), rs.getString("postulante_nombre"), rs.getString("postulante_email"),
-                    rs.getString("razon_social"), rs.getString("socio_email"))
-                : null, socioId, profileId);
+                    rs.getString("razon_social"), rs.getString("socio_email"), rs.getString("oferta_titulo"))
+                : null, socioId, request.ofertaId(), profileId);
         if (recipient == null || recipient.applicantEmail() == null || recipient.applicantEmail().isBlank()
             || recipient.socioEmail() == null || recipient.socioEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró un correo de contacto para esta notificación");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No se encontró una postulación a esta oferta de tu empresa con datos de contacto disponibles");
         }
 
         boolean selected = request.selected();
-        String subject = selected
-                ? "CCISJ — Buenas noticias sobre tu postulación"
-                : "CCISJ — Actualización sobre tu postulación";
+        String title = selected ? "Avance en el proceso de selección" : "Resultado del proceso de selección";
+        String subject = "CCISJ — " + title + " — " + recipient.offerTitle();
         String outcome = selected
-                ? "fuiste seleccionado/a para continuar en el proceso de selección."
-                : "en esta ocasión no fuiste seleccionado/a para continuar.";
+                ? "Le informamos que su postulación para la oferta «" + recipient.offerTitle()
+                        + "» de " + recipient.socioName() + " ha sido seleccionada para continuar en el proceso de selección."
+                : "Le informamos que, en esta oportunidad, su postulación para la oferta «"
+                        + recipient.offerTitle() + "» de " + recipient.socioName()
+                        + " no ha sido seleccionada para continuar en el proceso.";
         var content = MailTemplate.build(
-                selected ? "Avance en el proceso de selección" : "Actualización de tu postulación",
-                "Hola, " + recipient.applicantName() + ":",
+                title,
+                "Estimado/a " + recipient.applicantName() + ":",
                 java.util.List.of(
-                        recipient.socioName() + " te informa que " + outcome,
-                        "Si querés escribirle a la empresa, respondé este correo: la respuesta llega directo a "
-                                + recipient.socioName() + "."),
+                        outcome,
+                        selected
+                                ? "Esta comunicación confirma el avance de su candidatura y no constituye una confirmación de contratación."
+                                : "Agradecemos su interés y el tiempo dedicado a presentar su candidatura. Le invitamos a consultar otras oportunidades en la Bolsa de Empleo del CCISJ.",
+                        "Para realizar consultas sobre este proceso, puede comunicarse con la empresa a través de "
+                                + recipient.socioEmail() + ". Si responde a este correo, su mensaje será dirigido a la empresa."),
                 java.util.List.of(
+                        new MailTemplate.Detail("Oferta laboral", recipient.offerTitle()),
                         new MailTemplate.Detail("Empresa", recipient.socioName()),
-                        new MailTemplate.Detail("Resultado", selected ? "Seleccionado/a" : "No seleccionado/a"),
+                        new MailTemplate.Detail("Resultado", selected ? "Seleccionado/a para la siguiente etapa" : "No seleccionado/a"),
                         new MailTemplate.Detail("Correo de la empresa", recipient.socioEmail())),
                 null,
-                "Bolsa de Empleo · Centro Comercial e Industrial de San José.");
+                "Comunicación emitida a solicitud de la empresa a través de la Bolsa de Empleo del Centro Comercial e Industrial de San José.");
         notificacionRepository.saveAndFlush(new Notificacion(
-                userRepository.getReferenceById(recipient.applicantUserId()), subject, content.plain(), false));
+                userRepository.getReferenceById(recipient.applicantUserId()), title, content.plain(), false));
         mailNotificationService.send(recipient.applicantEmail(), subject, content, recipient.socioEmail());
         return new ContactNotification("Notificación enviada a " + recipient.applicantEmail());
         }
@@ -240,9 +270,12 @@ public class SocioBolsaController {
 
     public record CvLink(String url) {}
 
-    public record ContactNotificationRequest(boolean selected) {}
+    public record ContactApplication(Long ofertaId, String ofertaTitulo, Long perfilId, String perfilNombre) {}
+
+    public record ContactNotificationRequest(@NotNull Boolean selected, @NotNull @Positive Long ofertaId) {}
 
     public record ContactNotification(String message) {}
 
-    private record ContactRecipient(Long applicantUserId, String applicantName, String applicantEmail, String socioName, String socioEmail) {}
+    private record ContactRecipient(Long applicantUserId, String applicantName, String applicantEmail,
+            String socioName, String socioEmail, String offerTitle) {}
 }
