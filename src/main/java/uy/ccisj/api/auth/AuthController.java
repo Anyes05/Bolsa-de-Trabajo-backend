@@ -16,9 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class AuthController {
     private final AuthService authService;
+    private final ProfilePhotoService photos;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, ProfilePhotoService photos) {
         this.authService = authService;
+        this.photos = photos;
     }
 
     @PostMapping("/login")
@@ -58,6 +60,7 @@ public class AuthController {
         response.put("fullName", authService.applicantFullName(authentication.getName()));
         response.put("esDirectivo", authService.socioEsDirectivo(authentication.getName()));
         response.put("debeCambiarPassword", authService.debeCambiarPassword(authentication.getName()));
+        response.put("fotoUrl", photos.find(authentication.getName()));
         return response;
     }
 }

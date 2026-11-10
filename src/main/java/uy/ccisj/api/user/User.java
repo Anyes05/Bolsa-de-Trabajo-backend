@@ -55,6 +55,12 @@ public class User {
     @Column(name = "google_photo_url", columnDefinition = "TEXT")
     private String googlePhotoUrl;
 
+    @Column(name = "foto_perfil", columnDefinition = "bytea", insertable = false, updatable = false)
+    private byte[] fotoPerfil;
+
+    @Column(name = "foto_mime", insertable = false, updatable = false)
+    private String fotoMime;
+
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY)
     private Postulante postulante;
 
@@ -94,6 +100,8 @@ public class User {
     public String getGoogleSubject() { return googleSubject; }
     public void setGoogleSubject(String googleSubject) { this.googleSubject = googleSubject; }
     public String getGooglePhotoUrl() { return googlePhotoUrl; }
+    public byte[] getFotoPerfil() { return fotoPerfil; }
+    public String getFotoMime() { return fotoMime; }
     public void setGooglePhotoUrl(String googlePhotoUrl) { this.googlePhotoUrl = googlePhotoUrl; }
     public Postulante getPostulante() { return postulante; }
     public Socio getSocio() { return socio; }

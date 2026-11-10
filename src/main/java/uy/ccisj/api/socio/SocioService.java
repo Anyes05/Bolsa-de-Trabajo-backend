@@ -16,6 +16,7 @@ import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.auth.PasswordPolicy;
+import uy.ccisj.api.auth.ProfilePhotoService;
 import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.socio.dto.CredencialesEnviadasDTO;
@@ -478,7 +479,9 @@ public class SocioService {
                 user == null || user.isActivo(),
                 passwordProvisional,
                 credencialesEnviadas,
-                credencialesEnvioMensaje);
+                credencialesEnvioMensaje,
+                user == null ? null : ProfilePhotoService.photoUrl(
+                        user.getFotoPerfil(), user.getFotoMime(), user.getGooglePhotoUrl()));
     }
 
     private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {

@@ -27,5 +27,6 @@ public record SocioResponseDTO(
         boolean activo,
         String passwordProvisional,
         Boolean credencialesEnviadas,
-        String credencialesEnvioMensaje) {
+        String credencialesEnvioMensaje,
+        String fotoUrl) {
 }

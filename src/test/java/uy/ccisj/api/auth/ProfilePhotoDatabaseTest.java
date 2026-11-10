@@ -29,6 +29,7 @@ import uy.ccisj.api.user.UserRepository;
 @EnabledIfSystemProperty(named = "photoTestJdbcUrl", matches = ".+")
 class ProfilePhotoDatabaseTest {
     private static JdbcTemplate jdbc;
+    private static DriverManagerDataSource dataSource;
     private static ProfilePhotoService photos;
     private static Long applicantId;
     private static final String APPLICANT = "avatar-applicant@example.test";
@@ -37,7 +38,7 @@ class ProfilePhotoDatabaseTest {
     static void migrateIsolatedDatabase() {
         String schema = "avatar_" + java.util.UUID.randomUUID().toString().replace("-", "");
         String url = System.getProperty("photoTestJdbcUrl");
-        var dataSource = new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public",
+        dataSource = new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public",
                 "photo_test", "photo_test");
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
@@ -156,6 +157,43 @@ class ProfilePhotoDatabaseTest {
             photos.remove(email);
             assertNull(new ProfilePhotoService(jdbc).find(email));
             assertEquals("data:image/png;base64,AQID", photos.find(APPLICANT));
+        }
+    }
+
+    @Test
+    void reloadsSocioPhotoThroughJpaAndSessionWithoutOverwritingJdbcUploads() {
+        String email = "photo-persistence-socio@example.test";
+        Long id = jdbc.queryForObject("""
+                INSERT INTO usuarios (email, password_hash, rol, bps)
+                VALUES (?, 'test-only', 'SOCIO', 'photo-persistence') RETURNING id
+                """, Long.class, email);
+        photos.upload(email, new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3}));
+        var factory = new org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean();
+        factory.setDataSource(dataSource);
+        factory.setPackagesToScan("uy.ccisj.api");
+        factory.setJpaVendorAdapter(new org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter());
+        factory.afterPropertiesSet();
+        try (var em = factory.getObject().createEntityManager()) {
+            User loaded = em.find(User.class, id);
+            assertArrayEquals(new byte[] {1, 2, 3}, loaded.getFotoPerfil());
+            assertEquals("image/png", loaded.getFotoMime());
+            photos.upload(email, new MockMultipartFile("file", "photo.webp", "image/webp", new byte[] {4}));
+            em.getTransaction().begin();
+            loaded.setPasswordHash("updated-test-only");
+            em.getTransaction().commit();
+            em.clear();
+            User reloaded = em.find(User.class, id);
+            assertArrayEquals(new byte[] {4}, reloaded.getFotoPerfil());
+            assertEquals("image/webp", reloaded.getFotoMime());
+            assertEquals("data:image/webp;base64,BA==",
+                    new AuthController(mock(AuthService.class), new ProfilePhotoService(jdbc)).currentUser(
+                            new UsernamePasswordAuthenticationToken(email, null)).get("fotoUrl"));
+            photos.remove(email);
+            em.clear();
+            assertNull(em.find(User.class, id).getFotoPerfil());
+            assertNull(new ProfilePhotoService(jdbc).find(email));
+        } finally {
+            factory.destroy();
         }
     }
 }
