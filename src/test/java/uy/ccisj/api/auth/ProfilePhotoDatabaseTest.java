@@ -134,7 +134,7 @@ class ProfilePhotoDatabaseTest {
         when(socio.getId()).thenReturn(123L);
         when(socios.findByUsuarioId(123L)).thenReturn(Optional.of(socio));
         var bolsa = new SocioBolsaController(jdbc, users, socios, mock(S3StorageService.class),
-                mock(MailNotificationService.class), 15);
+                mock(MailNotificationService.class), mock(uy.ccisj.api.notificacion.NotificacionRepository.class), 15);
         var card = bolsa.search(new UsernamePasswordAuthenticationToken("socio@example.test", null), null)
                 .stream().filter(profile -> profile.applicantId().equals(applicantId)).findFirst().orElseThrow();
         assertEquals(expected, card.fotoUrl());

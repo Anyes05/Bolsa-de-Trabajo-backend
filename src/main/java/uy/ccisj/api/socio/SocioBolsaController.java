@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
 import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.mail.MailTemplate;
+import uy.ccisj.api.notificacion.Notificacion;
+import uy.ccisj.api.notificacion.NotificacionRepository;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.UserRepository;
@@ -29,17 +32,20 @@ public class SocioBolsaController {
     private final SocioRepository socioRepository;
         private final S3StorageService storageService;
         private final MailNotificationService mailNotificationService;
+        private final NotificacionRepository notificacionRepository;
         private final int presignedMinutes;
 
     public SocioBolsaController(JdbcTemplate jdbcTemplate, UserRepository userRepository,
                         SocioRepository socioRepository, S3StorageService storageService,
                         MailNotificationService mailNotificationService,
+                        NotificacionRepository notificacionRepository,
                         @Value("${app.storage.presigned-minutes:15}") int presignedMinutes) {
         this.jdbcTemplate = jdbcTemplate;
         this.userRepository = userRepository;
         this.socioRepository = socioRepository;
         this.storageService = storageService;
         this.mailNotificationService = mailNotificationService;
+        this.notificacionRepository = notificacionRepository;
         this.presignedMinutes = presignedMinutes;
     }
 
@@ -130,11 +136,12 @@ public class SocioBolsaController {
     }
 
         @PostMapping("/{profileId}/notificacion")
+        @Transactional
         public ContactNotification notifyApplicant(Authentication authentication, @PathVariable Long profileId,
             @RequestBody ContactNotificationRequest request) {
         Long socioId = requireEligibleSocio(authentication.getName());
         ContactRecipient recipient = jdbcTemplate.query("""
-            SELECT p.nombre_completo AS postulante_nombre, u.email AS postulante_email,
+            SELECT u.id AS postulante_usuario_id, p.nombre_completo AS postulante_nombre, u.email AS postulante_email,
                    s.razon_social, COALESCE(NULLIF(s.email_contacto, ''), socio_usuario.email) AS socio_email
               FROM perfiles_laborales pl
               JOIN postulantes p ON p.id = pl.postulante_id AND p.visible = TRUE
@@ -143,7 +150,7 @@ public class SocioBolsaController {
               JOIN usuarios socio_usuario ON socio_usuario.id = s.usuario_id AND socio_usuario.activo = TRUE
              WHERE pl.id = ? AND pl.visible = TRUE
             """, rs -> rs.next()
-                ? new ContactRecipient(rs.getString("postulante_nombre"), rs.getString("postulante_email"),
+                ? new ContactRecipient(rs.getLong("postulante_usuario_id"), rs.getString("postulante_nombre"), rs.getString("postulante_email"),
                     rs.getString("razon_social"), rs.getString("socio_email"))
                 : null, socioId, profileId);
         if (recipient == null || recipient.applicantEmail() == null || recipient.applicantEmail().isBlank()
@@ -171,6 +178,8 @@ public class SocioBolsaController {
                         new MailTemplate.Detail("Correo de la empresa", recipient.socioEmail())),
                 null,
                 "Bolsa de Empleo · Centro Comercial e Industrial de San José.");
+        notificacionRepository.saveAndFlush(new Notificacion(
+                userRepository.getReferenceById(recipient.applicantUserId()), subject, content.plain(), false));
         mailNotificationService.send(recipient.applicantEmail(), subject, content, recipient.socioEmail());
         return new ContactNotification("Notificación enviada a " + recipient.applicantEmail());
         }
@@ -235,5 +244,5 @@ public class SocioBolsaController {
 
     public record ContactNotification(String message) {}
 
-    private record ContactRecipient(String applicantName, String applicantEmail, String socioName, String socioEmail) {}
+    private record ContactRecipient(Long applicantUserId, String applicantName, String applicantEmail, String socioName, String socioEmail) {}
 }
