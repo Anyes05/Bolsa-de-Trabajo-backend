@@ -66,6 +66,9 @@ public class OfertaEmpleo {
     @Column(nullable = false)
     private int vacantes = 1;
 
+    @Column(name = "mostrar_nombre_empresa", nullable = false)
+    private boolean mostrarNombreEmpresa = true;
+
     @Column(name = "fecha_publicacion", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime fechaPublicacion;
 
@@ -112,6 +115,9 @@ public class OfertaEmpleo {
     public void setDisponibilidadHoraria(DisponibilidadHoraria disponibilidadHoraria) { this.disponibilidadHoraria = disponibilidadHoraria; }
     public int getVacantes() { return vacantes; }
     public void setVacantes(int vacantes) { this.vacantes = vacantes; }
+    public boolean isMostrarNombreEmpresa() { return mostrarNombreEmpresa; }
+    public void setMostrarNombreEmpresa(boolean mostrarNombreEmpresa) { this.mostrarNombreEmpresa = mostrarNombreEmpresa; }
+    public String nombreEmpresaParaPostulante() { return mostrarNombreEmpresa ? socio.getRazonSocial() : "Empresa reservada"; }
     public OffsetDateTime getFechaPublicacion() { return fechaPublicacion; }
     public LocalDate getFechaCierre() { return fechaCierre; }
     public void setFechaCierre(LocalDate fechaCierre) { this.fechaCierre = fechaCierre; }

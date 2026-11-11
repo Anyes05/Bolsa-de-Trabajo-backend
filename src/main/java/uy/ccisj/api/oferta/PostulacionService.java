@@ -86,7 +86,7 @@ public class PostulacionService {
     private PostulacionResponse response(Postulacion application) {
         OfertaEmpleo offer = application.getOferta();
         return new PostulacionResponse(application.getId(), offer.getId(), offer.getTitulo(),
-                offer.getSocio().getRazonSocial(), offer.getRubro().getNombreRubro(), application.getFecha(),
+                offer.nombreEmpresaParaPostulante(), offer.getRubro().getNombreRubro(), application.getFecha(),
                 application.getEstado(), application.getPerfilLaboral() == null ? null : application.getPerfilLaboral().getId(),
                 application.getPerfilLaboral() == null ? null : application.getPerfilLaboral().getNombre(),
                 application.getCv() == null ? null : application.getCv().getId(),

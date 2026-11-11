@@ -24,5 +24,6 @@ public record OfertaResponse(
         OffsetDateTime fechaPublicacion,
         LocalDate fechaCierre,
         EstadoOferta estado,
-        long postulaciones) {
+        long postulaciones,
+        boolean mostrarNombreEmpresa) {
 }

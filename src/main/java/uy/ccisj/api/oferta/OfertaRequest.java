@@ -16,5 +16,6 @@ public record OfertaRequest(
         TipoContrato tipoContrato,
         DisponibilidadHoraria disponibilidadHoraria,
         Integer vacantes,
-        LocalDate fechaCierre) {
+        LocalDate fechaCierre,
+        Boolean mostrarNombreEmpresa) {
 }

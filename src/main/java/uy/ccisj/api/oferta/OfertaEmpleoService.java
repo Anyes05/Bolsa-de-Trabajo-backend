@@ -48,7 +48,7 @@ public class OfertaEmpleoService {
         expirePastOffers();
         return ofertaRepository.findByEstadoOrderByFechaPublicacionDesc(EstadoOferta.ACTIVA).stream()
                 .filter(offer -> rubroId == null || offer.getRubro().getId().equals(rubroId))
-                .map(this::response)
+                .map(offer -> response(offer, true))
                 .toList();
     }
 
@@ -135,6 +135,9 @@ public class OfertaEmpleoService {
         offer.setDisponibilidadHoraria(request.disponibilidadHoraria() == null ? DisponibilidadHoraria.FULL_TIME : request.disponibilidadHoraria());
         offer.setVacantes(request.vacantes());
         offer.setFechaCierre(request.fechaCierre());
+        if (request.mostrarNombreEmpresa() != null) {
+            offer.setMostrarNombreEmpresa(request.mostrarNombreEmpresa());
+        }
     }
 
     private OfertaEmpleo findForRole(String email, boolean admin, Long id) {
@@ -163,11 +166,16 @@ public class OfertaEmpleoService {
     }
 
     private OfertaResponse response(OfertaEmpleo offer) {
-        return new OfertaResponse(offer.getId(), offer.getSocio().getId(), offer.getSocio().getRazonSocial(),
+        return response(offer, false);
+    }
+
+    private OfertaResponse response(OfertaEmpleo offer, boolean forApplicant) {
+        return new OfertaResponse(offer.getId(), offer.getSocio().getId(),
+                forApplicant ? offer.nombreEmpresaParaPostulante() : offer.getSocio().getRazonSocial(),
                 offer.getRubro().getId(), offer.getRubro().getNombreRubro(), offer.getTitulo(), offer.getCargo(),
                 offer.getDescripcion(), offer.getRequisitos(), offer.getZona(), offer.getSalario(), offer.getTipoContrato(),
                 offer.getDisponibilidadHoraria(), offer.getVacantes(), offer.getFechaPublicacion(), offer.getFechaCierre(),
-                offer.getEstado(), offer.getPostulaciones().size());
+                offer.getEstado(), offer.getPostulaciones().size(), offer.isMostrarNombreEmpresa());
     }
 
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
