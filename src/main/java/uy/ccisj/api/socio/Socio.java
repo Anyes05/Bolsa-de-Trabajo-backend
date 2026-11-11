@@ -66,6 +66,15 @@ public class Socio {
     @Column(name = "fecha_aniversario")
     private LocalDate fechaAniversario;
 
+    @Column(name = "campos_ficticios", columnDefinition = "TEXT")
+    private String camposFicticios;
+
+    @Column(name = "importado_masivo", nullable = false)
+    private boolean importadoMasivo;
+
+    @Column(name = "acceso_habilitado", nullable = false)
+    private boolean accesoHabilitado = true;
+
     @OneToMany(mappedBy = "socio", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Cuota> cuotas = new ArrayList<>();
 
@@ -103,6 +112,12 @@ public class Socio {
     public void setFechaAlta(LocalDate fechaAlta) { this.fechaAlta = fechaAlta; }
     public LocalDate getFechaAniversario() { return fechaAniversario; }
     public void setFechaAniversario(LocalDate fechaAniversario) { this.fechaAniversario = fechaAniversario; }
+    public String getCamposFicticios() { return camposFicticios; }
+    public void setCamposFicticios(String camposFicticios) { this.camposFicticios = camposFicticios; }
+    public boolean isImportadoMasivo() { return importadoMasivo; }
+    public void setImportadoMasivo(boolean importadoMasivo) { this.importadoMasivo = importadoMasivo; }
+    public boolean isAccesoHabilitado() { return accesoHabilitado; }
+    public void setAccesoHabilitado(boolean accesoHabilitado) { this.accesoHabilitado = accesoHabilitado; }
     public List<Cuota> getCuotas() { return cuotas; }
     public List<OfertaEmpleo> getOfertas() { return ofertas; }
 }

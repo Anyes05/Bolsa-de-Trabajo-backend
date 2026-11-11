@@ -9,6 +9,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByCedula(String cedula);
     Optional<User> findByGoogleSubject(String googleSubject);
     boolean existsByEmailIgnoreCase(String email);
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     boolean existsByBps(String bps);
+    boolean existsByBpsAndIdNot(String bps, Long id);
     boolean existsByCedula(String cedula);
 }

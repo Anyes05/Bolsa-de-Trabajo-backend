@@ -163,7 +163,7 @@ class SocioSubscriptionDatabaseTest {
     @Test
     void editingStatusCannotBypassDatedReentry() {
         inTx(() -> service.deactivateSocio(socioId));
-        var dto = new SocioUpdateDTO("Test", socioId.toString(), "123", null, "Calle", "1",
+        var dto = new SocioUpdateDTO(null, null, "Test", socioId.toString(), "123", null, "Calle", "1",
                 "San José de Mayo", 1L, false, null, TODAY, EstadoMorosidad.AL_DIA);
         assertThrows(ResponseStatusException.class, () -> inTx(() -> service.updateSocio(socioId, dto)));
         assertFalse(inTx(() -> service.getSocioById(socioId)).activo());

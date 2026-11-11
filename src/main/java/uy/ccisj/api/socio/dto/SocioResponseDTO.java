@@ -28,5 +28,8 @@ public record SocioResponseDTO(
         String passwordProvisional,
         Boolean credencialesEnviadas,
         String credencialesEnvioMensaje,
-        String fotoUrl) {
+        String fotoUrl,
+        java.util.List<String> camposFicticios,
+        boolean importadoMasivo,
+        boolean accesoHabilitado) {
 }

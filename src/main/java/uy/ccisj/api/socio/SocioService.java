@@ -27,6 +27,7 @@ import uy.ccisj.api.socio.dto.SocioPerfilUpdateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
 import uy.ccisj.api.socio.dto.SocioUpdateDTO;
 import uy.ccisj.api.socio.dto.TipoIdentificadorSocio;
+import uy.ccisj.api.socio.importacion.CamposFicticios;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
@@ -223,33 +224,110 @@ public class SocioService {
     public SocioResponseDTO updateSocio(Long id, SocioUpdateDTO dto) {
         subscriptionHistory.lock(id);
         Socio socio = findSocio(id);
+        User user = socio.getUsuario();
+        java.util.Set<String> ficticios = CamposFicticios.parse(socio.getCamposFicticios());
         String rut = normalizeRut(dto.rut());
         if (socioRepository.existsByRutIgnoreCaseAndIdNot(rut, id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese RUT o cédula");
         }
+        clearIfChanged(ficticios, CamposFicticios.RUT, socio.getRut(), rut);
         socio.setRazonSocial(dto.razonSocial().trim());
         socio.setRut(rut);
+        clearIfChanged(ficticios, CamposFicticios.TELEFONO, socio.getTelefono(), trimToNull(dto.telefono()));
         socio.setTelefono(trimToNull(dto.telefono()));
-        socio.setEmailContacto(normalizeEmail(dto.emailContacto()));
+        String emailContacto = normalizeEmail(dto.emailContacto());
+        clearIfChanged(ficticios, CamposFicticios.EMAIL_CONTACTO, socio.getEmailContacto(), emailContacto);
+        socio.setEmailContacto(emailContacto);
+        Long previousRubroId = socio.getRubro() == null ? null : socio.getRubro().getId();
         assignRubro(socio, dto.rubroId());
+        if (previousRubroId != null && !previousRubroId.equals(dto.rubroId())) {
+            ficticios.remove(CamposFicticios.RUBRO);
+        }
         socio.setEsDirectivo(dto.esDirectivo());
         if (dto.fechaAlta() != null) {
+            if (socio.getFechaAlta() == null || !socio.getFechaAlta().equals(dto.fechaAlta())) {
+                ficticios.remove(CamposFicticios.FECHA_ALTA);
+            }
             socio.setFechaAlta(dto.fechaAlta());
+        }
+        if (dto.fechaAniversario() != null && (socio.getFechaAniversario() == null
+                || !socio.getFechaAniversario().equals(dto.fechaAniversario()))) {
+            ficticios.remove(CamposFicticios.FECHA_ANIVERSARIO);
         }
         socio.setFechaAniversario(dto.fechaAniversario());
         if (dto.estadoMorosidad() != null) {
             applyEstadoMorosidad(socio, dto.estadoMorosidad());
         }
         Direccion direccion = socio.getDireccion();
+        String nuevaCalle = dto.calle().trim();
+        String nuevoNumero = trimToNull(dto.numero());
+        String nuevaLocalidad = validateLocalidad(dto.localidad());
         if (direccion == null) {
-            direccion = new Direccion(dto.calle().trim(), trimToNull(dto.numero()), validateLocalidad(dto.localidad()));
+            direccion = new Direccion(nuevaCalle, nuevoNumero, nuevaLocalidad);
         } else {
-            direccion.setCalle(dto.calle().trim());
-            direccion.setNumero(trimToNull(dto.numero()));
-            direccion.setLocalidad(validateLocalidad(dto.localidad()));
+            clearIfChanged(ficticios, CamposFicticios.CALLE, direccion.getCalle(), nuevaCalle);
+            clearIfChanged(ficticios, CamposFicticios.NUMERO, direccion.getNumero(), nuevoNumero);
+            clearIfChanged(ficticios, CamposFicticios.LOCALIDAD, direccion.getLocalidad(), nuevaLocalidad);
+            direccion.setCalle(nuevaCalle);
+            direccion.setNumero(nuevoNumero);
+            direccion.setLocalidad(nuevaLocalidad);
         }
         socio.setDireccion(direccionRepository.save(direccion));
+        if (user != null && ficticios.contains(CamposFicticios.BPS) && dto.bps() != null && !dto.bps().isBlank()) {
+            String bps = normalizeDigits(dto.bps());
+            if (!bps.equals(user.getBps())) {
+                if (bps.length() < 9) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El número de BPS debe tener al menos 9 dígitos");
+                }
+                if (userRepository.existsByBpsAndIdNot(bps, user.getId()) || userRepository.existsByCedula(bps)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un socio con ese BPS");
+                }
+                user.setBps(bps);
+                ficticios.remove(CamposFicticios.BPS);
+                userRepository.save(user);
+            }
+        }
+        if (user != null && ficticios.contains(CamposFicticios.EMAIL_USUARIO)
+                && dto.emailUsuario() != null && !dto.emailUsuario().isBlank()) {
+            String email = dto.emailUsuario().trim().toLowerCase();
+            if (!email.equalsIgnoreCase(user.getEmail())) {
+                if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, user.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
+                }
+                user.setEmail(email);
+                ficticios.remove(CamposFicticios.EMAIL_USUARIO);
+                userRepository.save(user);
+            }
+        }
+        socio.setCamposFicticios(CamposFicticios.serialize(ficticios));
         return toResponse(socioRepository.save(socio));
+    }
+
+    @Transactional
+    public SocioResponseDTO habilitarAcceso(Long id) {
+        Socio socio = findSocio(id);
+        User user = socio.getUsuario();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El socio no tiene cuenta de acceso");
+        }
+        if (CamposFicticios.tiene(socio.getCamposFicticios(), CamposFicticios.BPS)
+                || CamposFicticios.tiene(socio.getCamposFicticios(), CamposFicticios.EMAIL_USUARIO)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Completá el BPS y el email de cuenta reales antes de habilitar el acceso");
+        }
+        if (user.getEmail() == null || user.getEmail().endsWith("@incompleto.ccisj.local")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "El socio necesita un email real para enviar las credenciales");
+        }
+        socio.setAccesoHabilitado(true);
+        socioRepository.save(socio);
+        String passwordProvisional = PasswordPolicy.generateProvisional(socio.getRazonSocial());
+        user.setPasswordHash(passwordEncoder.encode(passwordProvisional));
+        applyProvisionalPasswordWindow(user);
+        user.setActivo(true);
+        userRepository.save(user);
+        CredencialesMailResult mailResult = trySendCredencialesEmail(socio, user, passwordProvisional);
+        return toResponse(socio, passwordProvisional, mailResult.enviadas(), mailResult.mensaje());
     }
 
     @Transactional
@@ -533,7 +611,10 @@ public class SocioService {
                 credencialesEnviadas,
                 credencialesEnvioMensaje,
                 user == null ? null : ProfilePhotoService.photoUrl(
-                        user.getFotoPerfil(), user.getFotoMime(), user.getGooglePhotoUrl()));
+                        user.getFotoPerfil(), user.getFotoMime(), user.getGooglePhotoUrl()),
+                CamposFicticios.list(socio.getCamposFicticios()),
+                socio.isImportadoMasivo(),
+                socio.isAccesoHabilitado());
     }
 
     private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {
@@ -588,5 +669,13 @@ public class SocioService {
             return null;
         }
         return value.trim();
+    }
+
+    private static void clearIfChanged(java.util.Set<String> ficticios, String campo, String anterior, String nuevo) {
+        String left = anterior == null ? "" : anterior.trim();
+        String right = nuevo == null ? "" : nuevo.trim();
+        if (!left.equals(right)) {
+            ficticios.remove(campo);
+        }
     }
 }

@@ -90,4 +90,9 @@ public class SocioController {
     public CredencialesEnviadasDTO enviarCredenciales(@PathVariable Long id) {
         return socioService.enviarCredenciales(id);
     }
+
+    @PostMapping("/{id}/habilitar-acceso")
+    public SocioResponseDTO habilitarAcceso(@PathVariable Long id) {
+        return socioService.habilitarAcceso(id);
+    }
 }

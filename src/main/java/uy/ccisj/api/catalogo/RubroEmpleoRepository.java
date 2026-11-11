@@ -8,6 +8,8 @@ public interface RubroEmpleoRepository extends JpaRepository<RubroEmpleo, Long> 
 
     List<RubroEmpleo> findAllByOrderByNombreRubroAsc();
 
+    java.util.Optional<RubroEmpleo> findByNombreRubroIgnoreCase(String nombreRubro);
+
     boolean existsByNombreRubroIgnoreCase(String nombreRubro);
 
     boolean existsByNombreRubroIgnoreCaseAndIdNot(String nombreRubro, Long id);

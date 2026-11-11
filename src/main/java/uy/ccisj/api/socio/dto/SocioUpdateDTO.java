@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import uy.ccisj.api.domain.EstadoMorosidad;
 
 public record SocioUpdateDTO(
+        @Size(max = 30) String bps,
+        @Size(max = 254) String emailUsuario,
         @NotBlank(message = "La razón social es obligatoria") @Size(max = 200) String razonSocial,
         @NotBlank(message = "El RUT o la cédula es obligatorio") @Size(max = 20, message = "El RUT o la cédula es demasiado largo") String rut,
         @NotBlank(message = "El teléfono es obligatorio") @Size(max = 40) String telefono,

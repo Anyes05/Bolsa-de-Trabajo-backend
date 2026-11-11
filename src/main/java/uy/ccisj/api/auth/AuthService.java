@@ -56,6 +56,14 @@ public class AuthService {
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas"));
         assertProvisionalPasswordStillValid(user);
+        if (user.getRole() == Role.SOCIO) {
+            socioRepository.findByUsuarioId(user.getId())
+                    .filter(socio -> !socio.isAccesoHabilitado())
+                    .ifPresent(socio -> {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                "Esta cuenta todavía no tiene acceso. Pedile al administrador que complete los datos y habilite el ingreso.");
+                    });
+        }
         retencionPermanenciaService.touchActividad(user);
         return authResponse(user);
     }

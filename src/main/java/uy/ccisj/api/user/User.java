@@ -80,6 +80,7 @@ public class User {
 
     public Long getId() { return id; }
     public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
     public String getBps() { return bps; }
     public void setBps(String bps) { this.bps = bps; }
     public String getCedula() { return cedula; }
