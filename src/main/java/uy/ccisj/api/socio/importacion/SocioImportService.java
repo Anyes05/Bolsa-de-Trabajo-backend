@@ -3,6 +3,7 @@ package uy.ccisj.api.socio.importacion;
 import java.io.InputStream;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -80,7 +81,7 @@ public class SocioImportService {
         RubroEmpleo sinClasificar = requireRubroSinClasificar();
         FictionalCounters counters = new FictionalCounters();
         for (PreparedRow row : prepared) {
-            if (!"IMPORTABLE".equals(row.estado)) {
+            if (!esImportable(row.estado)) {
                 omitidas.add(row.toPreview());
                 continue;
             }
@@ -210,10 +211,12 @@ public class SocioImportService {
             ficticios.add(CamposFicticios.FECHA_ANIVERSARIO);
         }
 
+        String estado = raw.inactivo() ? "INACTIVO" : "IMPORTABLE";
+        String motivo = motivoImportacion(raw.inactivo(), !ficticios.isEmpty());
         return new PreparedRow(
                 raw.filaExcel(),
-                "IMPORTABLE",
-                ficticios.isEmpty() ? null : "Se completarán datos provisionales en los campos marcados",
+                estado,
+                motivo,
                 razonSocial,
                 bpsDigits,
                 rutDigits,
@@ -226,14 +229,18 @@ public class SocioImportService {
                 rubro.id,
                 fechaAlta,
                 fechaAniversario,
-                List.copyOf(ficticios));
+                List.copyOf(ficticios),
+                raw.inactivo());
     }
 
     private void persist(PreparedRow row, RubroEmpleo sinClasificar) {
         String password = PasswordPolicy.generateProvisional(row.razonSocial);
         User user = new User(row.email, row.bps, passwordEncoder.encode(password), Role.SOCIO);
         user.setCedula(null);
-        user.setActivo(true);
+        user.setActivo(!row.inactivo);
+        if (row.inactivo) {
+            user.setFechaBaja(OffsetDateTime.now());
+        }
         userRepository.save(user);
 
         Direccion direccion = direccionRepository.save(new Direccion(row.calle, row.numero, row.localidad));
@@ -249,12 +256,19 @@ public class SocioImportService {
         socio.setEsDirectivo(false);
         socio.setFechaAlta(row.fechaAlta);
         socio.setFechaAniversario(row.fechaAniversario);
-        socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
+        socio.setEstadoMorosidad(row.inactivo ? EstadoMorosidad.INACTIVO : EstadoMorosidad.AL_DIA);
         socio.setImportadoMasivo(true);
         socio.setAccesoHabilitado(false);
         socio.setCamposFicticios(CamposFicticios.serialize(new LinkedHashSet<>(row.camposFicticios)));
         Socio saved = socioRepository.save(socio);
         subscriptionHistory.record(saved.getId(), "ALTA", saved.getFechaAlta());
+        if (row.inactivo) {
+            LocalDate baja = subscriptionHistory.today();
+            if (saved.getFechaAlta() != null && baja.isBefore(saved.getFechaAlta())) {
+                baja = saved.getFechaAlta();
+            }
+            subscriptionHistory.record(saved.getId(), "BAJA", baja);
+        }
     }
 
     private RubroEmpleo requireRubroSinClasificar() {
@@ -317,10 +331,14 @@ public class SocioImportService {
         int conFicticios = 0;
         int duplicados = 0;
         int errores = 0;
+        int inactivos = 0;
         for (PreviewFila fila : filas) {
             switch (fila.estado()) {
-                case "IMPORTABLE" -> {
+                case "IMPORTABLE", "INACTIVO" -> {
                     importables++;
+                    if ("INACTIVO".equals(fila.estado())) {
+                        inactivos++;
+                    }
                     if (fila.camposFicticios() != null && !fila.camposFicticios().isEmpty()) {
                         conFicticios++;
                     }
@@ -329,7 +347,24 @@ public class SocioImportService {
                 default -> errores++;
             }
         }
-        return new ImportResumen(filas.size(), importables, conFicticios, duplicados, errores, creados);
+        return new ImportResumen(filas.size(), importables, conFicticios, duplicados, errores, inactivos, creados);
+    }
+
+    private static boolean esImportable(String estado) {
+        return "IMPORTABLE".equals(estado) || "INACTIVO".equals(estado);
+    }
+
+    private static String motivoImportacion(boolean inactivo, boolean conFicticios) {
+        if (inactivo && conFicticios) {
+            return "Celda en rojo en el Excel: se importará como socio inactivo. Se completarán datos provisionales en los campos marcados";
+        }
+        if (inactivo) {
+            return "Celda en rojo en el Excel: se importará como socio inactivo";
+        }
+        if (conFicticios) {
+            return "Se completarán datos provisionales en los campos marcados";
+        }
+        return null;
     }
 
     private static void validateFile(MultipartFile file) {
@@ -344,13 +379,13 @@ public class SocioImportService {
 
     private static PreparedRow error(PadronExcelParser.RawRow raw, String motivo) {
         return new PreparedRow(raw.filaExcel(), "ERROR", motivo, blankToNull(raw.razonSocial()),
-                null, null, null, null, null, null, null, null, null, null, null, List.of());
+                null, null, null, null, null, null, null, null, null, null, null, List.of(), raw.inactivo());
     }
 
     private static PreparedRow duplicate(PadronExcelParser.RawRow raw, String razon, String motivo) {
         return new PreparedRow(raw.filaExcel(), "DUPLICADO", motivo, razon,
                 digits(raw.bps()), digits(raw.rut()), null, normalizeEmail(raw.mail()),
-                null, null, null, null, null, null, null, List.of());
+                null, null, null, null, null, null, null, List.of(), raw.inactivo());
     }
 
     private static String nextBps(FictionalCounters counters) {
@@ -425,7 +460,8 @@ public class SocioImportService {
             Long rubroId,
             LocalDate fechaAlta,
             LocalDate fechaAniversario,
-            List<String> camposFicticios) {
+            List<String> camposFicticios,
+            boolean inactivo) {
 
         PreviewFila toPreview() {
             return new PreviewFila(
@@ -433,12 +469,13 @@ public class SocioImportService {
                     calle, numero, localidad, rubro,
                     fechaAlta == null ? null : fechaAlta.toString(),
                     fechaAniversario == null ? null : fechaAniversario.toString(),
-                    camposFicticios);
+                    camposFicticios,
+                    inactivo);
         }
 
         PreparedRow withError(String nuevoMotivo) {
             return new PreparedRow(filaExcel, "ERROR", nuevoMotivo, razonSocial, bps, rut, telefono, email,
-                    calle, numero, localidad, rubro, rubroId, fechaAlta, fechaAniversario, camposFicticios);
+                    calle, numero, localidad, rubro, rubroId, fechaAlta, fechaAniversario, camposFicticios, inactivo);
         }
     }
 }

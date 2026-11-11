@@ -10,13 +10,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Color;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 
 public final class PadronExcelParser {
     private static final DataFormatter FORMATTER = new DataFormatter(Locale.forLanguageTag("es-UY"));
@@ -38,7 +48,8 @@ public final class PadronExcelParser {
             String rut,
             String bps,
             String inicio,
-            String fechaAfiliacion) {}
+            String fechaAfiliacion,
+            boolean inactivo) {}
 
     private PadronExcelParser() {}
 
@@ -76,7 +87,8 @@ public final class PadronExcelParser {
                         cell(row, columns.get("rut")),
                         cell(row, columns.get("bps")),
                         cell(row, columns.get("inicio")),
-                        cell(row, columns.get("afiliacion"))));
+                        cell(row, columns.get("afiliacion")),
+                        isInactiveRow(row)));
             }
             return rows;
         } catch (IllegalArgumentException exception) {
@@ -192,5 +204,136 @@ public final class PadronExcelParser {
             // formato no fecha
         }
         return FORMATTER.formatCellValue(cell).trim();
+    }
+
+    static boolean isInactiveRow(Row row) {
+        if (row == null) {
+            return false;
+        }
+        Workbook workbook = row.getSheet().getWorkbook();
+        if (isRedStyle(row.getRowStyle(), workbook)) {
+            return true;
+        }
+        short last = row.getLastCellNum();
+        for (int index = 0; index < last; index++) {
+            Cell cell = row.getCell(index);
+            if (cell != null && isRedCell(cell)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isRedCell(Cell cell) {
+        Workbook workbook = cell.getSheet().getWorkbook();
+        CellStyle style = cell.getCellStyle();
+        if (isRedStyle(style, workbook)) {
+            return true;
+        }
+        Font font = workbook.getFontAt(style.getFontIndex());
+        if (font instanceof XSSFFont xssfFont) {
+            if (isRedColor(xssfFont.getXSSFColor())) {
+                return true;
+            }
+        } else if (font instanceof HSSFFont hssfFont && workbook instanceof HSSFWorkbook hssfWorkbook) {
+            if (isRedColor(hssfFont.getHSSFColor(hssfWorkbook))) {
+                return true;
+            }
+        }
+        return isRedIndexed(font.getColor());
+    }
+
+    private static boolean isRedStyle(CellStyle style, Workbook workbook) {
+        if (style == null) {
+            return false;
+        }
+        FillPatternType pattern = style.getFillPattern();
+        if (pattern != null && pattern != FillPatternType.NO_FILL) {
+            if (isRedColor(style.getFillForegroundColorColor()) || isRedIndexed(style.getFillForegroundColor())) {
+                return true;
+            }
+        }
+        Font font = workbook.getFontAt(style.getFontIndex());
+        return font instanceof XSSFFont xssfFont && isRedColor(xssfFont.getXSSFColor());
+    }
+
+    private static boolean isRedIndexed(int index) {
+        return index == IndexedColors.RED.getIndex()
+                || index == IndexedColors.DARK_RED.getIndex();
+    }
+
+    private static boolean isRedColor(Color color) {
+        int[] rgb = rgbOf(color);
+        if (rgb == null) {
+            return false;
+        }
+        return isRedRgb(rgb[0], rgb[1], rgb[2]);
+    }
+
+    private static int[] rgbOf(Color color) {
+        if (color instanceof XSSFColor xssf) {
+            byte[] rgb = xssf.getRGB();
+            if (rgb == null) {
+                rgb = xssf.getARGB();
+            }
+            rgb = applyTint(rgb, xssf.hasTint() ? xssf.getTint() : 0);
+            if (rgb != null && rgb.length >= 3) {
+                int start = rgb.length == 4 ? 1 : 0;
+                return new int[] { rgb[start] & 0xFF, rgb[start + 1] & 0xFF, rgb[start + 2] & 0xFF };
+            }
+        }
+        if (color instanceof HSSFColor hssf) {
+            short[] triplet = hssf.getTriplet();
+            if (triplet != null && triplet.length >= 3) {
+                return new int[] { triplet[0], triplet[1], triplet[2] };
+            }
+        }
+        return null;
+    }
+
+    private static byte[] applyTint(byte[] rgb, double tint) {
+        if (rgb == null || tint == 0) {
+            return rgb;
+        }
+        int start = rgb.length == 4 ? 1 : 0;
+        if (rgb.length < start + 3) {
+            return rgb;
+        }
+        byte[] out = new byte[3];
+        for (int index = 0; index < 3; index++) {
+            int channel = rgb[start + index] & 0xFF;
+            if (tint < 0) {
+                channel = (int) Math.round(channel * (1 + tint));
+            } else {
+                channel = (int) Math.round(channel * (1 - tint) + 255 * tint);
+            }
+            out[index] = (byte) Math.max(0, Math.min(255, channel));
+        }
+        return out;
+    }
+
+    static boolean isRedRgb(int red, int green, int blue) {
+        int max = Math.max(red, Math.max(green, blue));
+        int min = Math.min(red, Math.min(green, blue));
+        if (max < 80 || max == min) {
+            return false;
+        }
+        float saturation = (max - min) / (float) max;
+        if (saturation < 0.12f) {
+            return false;
+        }
+        float hue;
+        if (max == red) {
+            hue = (green - blue) / (float) (max - min);
+        } else if (max == green) {
+            hue = 2f + (blue - red) / (float) (max - min);
+        } else {
+            hue = 4f + (red - green) / (float) (max - min);
+        }
+        hue *= 60f;
+        if (hue < 0) {
+            hue += 360f;
+        }
+        return hue <= 22f || hue >= 338f;
     }
 }

@@ -15,6 +15,7 @@ public final class ImportacionDtos {
             int conFicticios,
             int duplicados,
             int errores,
+            int inactivos,
             int creados) {}
 
     public record PreviewFila(
@@ -32,7 +33,8 @@ public final class ImportacionDtos {
             String rubro,
             String fechaAlta,
             String fechaAniversario,
-            List<String> camposFicticios) {}
+            List<String> camposFicticios,
+            boolean inactivo) {}
 
     public record ImportResponse(
             ImportResumen resumen,
