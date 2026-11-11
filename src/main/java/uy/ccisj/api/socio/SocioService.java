@@ -43,6 +43,7 @@ public class SocioService {
     private final CajaService cajaService;
     private final MailNotificationService mailNotificationService;
     private final String webUrl;
+    private final SocioSubscriptionHistory subscriptionHistory;
 
     public SocioService(
             SocioRepository socioRepository,
@@ -52,7 +53,8 @@ public class SocioService {
             PasswordEncoder passwordEncoder,
             CajaService cajaService,
             MailNotificationService mailNotificationService,
-            @Value("${app.web-url:https://ccisj.cloud-ip.cc}") String webUrl) {
+            @Value("${app.web-url:https://ccisj.cloud-ip.cc}") String webUrl,
+            SocioSubscriptionHistory subscriptionHistory) {
         this.socioRepository = socioRepository;
         this.userRepository = userRepository;
         this.direccionRepository = direccionRepository;
@@ -61,6 +63,7 @@ public class SocioService {
         this.cajaService = cajaService;
         this.mailNotificationService = mailNotificationService;
         this.webUrl = webUrl;
+        this.subscriptionHistory = subscriptionHistory;
     }
 
     @Transactional(readOnly = true)
@@ -211,12 +214,14 @@ public class SocioService {
         socio.setFechaAniversario(dto.fechaAniversario());
         socio.setEstadoMorosidad(EstadoMorosidad.AL_DIA);
         Socio saved = socioRepository.save(socio);
+        subscriptionHistory.record(saved.getId(), "ALTA", saved.getFechaAlta());
         CredencialesMailResult mailResult = trySendCredencialesEmail(saved, user, passwordProvisional);
         return toResponse(saved, passwordProvisional, mailResult.enviadas(), mailResult.mensaje());
     }
 
     @Transactional
     public SocioResponseDTO updateSocio(Long id, SocioUpdateDTO dto) {
+        subscriptionHistory.lock(id);
         Socio socio = findSocio(id);
         String rut = normalizeRut(dto.rut());
         if (socioRepository.existsByRutIgnoreCaseAndIdNot(rut, id)) {
@@ -249,18 +254,50 @@ public class SocioService {
 
     @Transactional
     public SocioResponseDTO deactivateSocio(Long id) {
+        subscriptionHistory.lock(id);
         Socio socio = findSocio(id);
         markInactive(socio);
         return toResponse(socioRepository.save(socio));
     }
 
     @Transactional
-    public SocioResponseDTO activateSocio(Long id) {
+    public SocioResponseDTO activateSocio(Long id, LocalDate fecha) {
+        subscriptionHistory.lock(id);
         Socio socio = findSocio(id);
+        if (isActive(socio)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El socio ya tiene una suscripción activa");
+        }
+        subscriptionHistory.validateReentry(id, fecha);
+        if (fecha.isAfter(subscriptionHistory.today())) {
+            subscriptionHistory.schedule(id, fecha);
+            return toResponse(socio);
+        }
         markActive(socio);
+        subscriptionHistory.record(id, "REINGRESO", fecha);
         socioRepository.save(socio);
         cajaService.actualizarMorosidad(socio);
         return toResponse(socio);
+    }
+
+    @Transactional
+    public void applyScheduledReentry(Long id) {
+        subscriptionHistory.lock(id);
+        Socio socio = findSocio(id);
+        LocalDate fecha = subscriptionHistory.applyDue(id);
+        if (fecha == null) return;
+        if (isActive(socio)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El socio ya está activo; revisar reingreso programado");
+        }
+        markActive(socio);
+        subscriptionHistory.record(id, "REINGRESO", fecha);
+        socioRepository.save(socio);
+        cajaService.actualizarMorosidad(socio);
+    }
+
+    @Transactional
+    public void cancelScheduledReentry(Long id) {
+        subscriptionHistory.lock(id);
+        subscriptionHistory.cancel(id);
     }
 
     @Transactional
@@ -391,21 +428,36 @@ public class SocioService {
             markInactive(socio);
             return;
         }
+        if (!isActive(socio)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Para reanudar la suscripción, ingresá la fecha en Historial de gestión de socios");
+        }
         markActive(socio);
         socio.setEstadoMorosidad(estado);
     }
 
     private void markInactive(Socio socio) {
+        boolean wasActive = isActive(socio);
+        if (subscriptionHistory.hasPending(socio.getId())) {
+            subscriptionHistory.cancel(socio.getId());
+        }
+        if (wasActive) subscriptionHistory.record(socio.getId(), "BAJA", subscriptionHistory.today());
         socio.setEstadoMorosidad(EstadoMorosidad.INACTIVO);
         User user = socio.getUsuario();
         if (user == null) {
             return;
         }
+
         user.setActivo(false);
         if (user.getFechaBaja() == null) {
             user.setFechaBaja(OffsetDateTime.now());
         }
         userRepository.save(user);
+    }
+
+    private boolean isActive(Socio socio) {
+        return socio.getUsuario() != null && socio.getUsuario().isActivo()
+                && socio.getEstadoMorosidad() != EstadoMorosidad.INACTIVO;
     }
 
     private void markActive(Socio socio) {

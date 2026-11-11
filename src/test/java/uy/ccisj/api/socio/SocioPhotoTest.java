@@ -15,7 +15,7 @@ class SocioPhotoTest {
     void returnsEachAccountsOwnPhotoInAdminListAndSocioProfile() {
         var socios = mock(SocioRepository.class);
         var users = mock(UserRepository.class);
-        var service = new SocioService(socios, users, null, null, null, null, null, "https://example.test");
+        var service = new SocioService(socios, users, null, null, null, null, null, "https://example.test", null);
         User firstUser = mock(User.class);
         when(firstUser.getId()).thenReturn(10L);
         when(firstUser.getEmail()).thenReturn("first@example.test");

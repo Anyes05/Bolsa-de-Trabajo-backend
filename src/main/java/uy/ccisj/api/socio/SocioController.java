@@ -1,6 +1,8 @@
 package uy.ccisj.api.socio;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,9 +24,11 @@ import uy.ccisj.api.socio.dto.SocioUpdateDTO;
 @RequestMapping("/admin/socios")
 public class SocioController {
     private final SocioService socioService;
+    private final SocioSubscriptionHistory history;
 
-    public SocioController(SocioService socioService) {
+    public SocioController(SocioService socioService, SocioSubscriptionHistory history) {
         this.socioService = socioService;
+        this.history = history;
     }
 
     @GetMapping
@@ -59,9 +63,23 @@ public class SocioController {
     }
 
     @PostMapping("/{id}/activar")
-    public SocioResponseDTO activate(@PathVariable Long id) {
-        return socioService.activateSocio(id);
+    public SocioResponseDTO activate(@PathVariable Long id, @Valid @RequestBody ReentryRequest request) {
+        return socioService.activateSocio(id, request.fecha());
     }
+
+    @GetMapping("/{id}/historial-suscripcion")
+    public List<SocioSubscriptionHistory.Entry> history(@PathVariable Long id) {
+        socioService.getSocioById(id);
+        return history.list(id);
+    }
+
+    @DeleteMapping("/{id}/reingreso-programado")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelReentry(@PathVariable Long id) {
+        socioService.cancelScheduledReentry(id);
+    }
+
+    public record ReentryRequest(@NotNull(message = "La fecha de reingreso es obligatoria") LocalDate fecha) {}
 
     @PostMapping("/{id}/clave-provisional")
     public SocioResponseDTO resetClaveProvisional(@PathVariable Long id) {
