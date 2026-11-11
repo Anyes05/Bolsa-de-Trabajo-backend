@@ -54,7 +54,7 @@ public class CajaService {
         return new CajaResumenDTO(
                 cuentas.size(),
                 cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.AL_DIA).count(),
-                cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.MOROSO).count(),
+                cuentas.stream().filter(cuenta -> cuenta.saldo().signum() > 0).count(),
                 cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO).count(),
                 cuentas);
     }
@@ -108,7 +108,11 @@ public class CajaService {
     @Transactional
     public CuentaCajaDTO registrarCobro(RegistrarCobroDTO dto) {
         Socio socio = findSocio(dto.socioId(), true);
-        validarActivo(socio);
+        SaldoCuenta.Resultado resultado = calcularSaldo(listarHistorial(socio.getId()));
+        if (calcularEstadoMorosidad(socio, resultado) == EstadoMorosidad.INACTIVO
+                && resultado.saldo().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El socio inactivo no tiene deuda pendiente para cobrar");
+        }
         Pago pago = new Pago(socio, dto.montoRecibido(), LocalDate.now(), dto.metodoPago());
         pago.setNroCobranzaExterno(trimToNull(dto.nroCobranzaExterno()));
         pago.setObservaciones(trimToNull(dto.observaciones()));
