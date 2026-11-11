@@ -7,13 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CvRepository extends JpaRepository<Cv, Long> {
     List<Cv> findByPostulanteIdOrderByVersionDesc(Long postulanteId);
 
-    List<Cv> findByPostulanteIdAndPerfilLaboralIdOrderByVersionDesc(Long postulanteId, Long perfilLaboralId);
-
     Optional<Cv> findByIdAndPostulanteId(Long id, Long postulanteId);
 
-    Optional<Cv> findByPostulanteIdAndActivoTrue(Long postulanteId);
+    Optional<Cv> findByPostulanteIdAndPerfilLaboralId(Long postulanteId, Long perfilLaboralId);
 
-    Optional<Cv> findByPostulanteIdAndPerfilLaboralIdAndActivoTrue(Long postulanteId, Long perfilLaboralId);
-
-    long countByPostulanteId(Long postulanteId);
 }

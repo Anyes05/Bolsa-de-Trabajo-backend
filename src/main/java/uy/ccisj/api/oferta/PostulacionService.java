@@ -64,9 +64,9 @@ public class PostulacionService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Seleccioná uno de tus perfiles visibles"));
-        var cv = cvRepository.findByPostulanteIdAndPerfilLaboralIdAndActivoTrue(postulante.getId(), profile.getId())
+        var cv = cvRepository.findByPostulanteIdAndPerfilLaboralId(postulante.getId(), profile.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El perfil seleccionado necesita un CV activo asociado"));
+                        "El perfil seleccionado necesita un CV asociado"));
 
         Postulacion application = new Postulacion(postulante, offer);
         application.setPerfilLaboral(profile);

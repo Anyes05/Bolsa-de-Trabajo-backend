@@ -5,7 +5,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,13 +33,9 @@ public class PostulanteCvController {
             Authentication authentication,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "resumen", required = false) String resumen,
-            @RequestParam(value = "perfilLaboralId", required = false) Long perfilLaboralId) {
-        return cvService.uploadCv(authentication.getName(), file, resumen, perfilLaboralId);
-    }
-
-    @PatchMapping("/{cvId}/activar")
-    public CvResponse activateCv(Authentication authentication, @PathVariable Long cvId) {
-        return cvService.activateCv(authentication.getName(), cvId);
+            @RequestParam(value = "perfilLaboralId", required = false) Long perfilLaboralId,
+            @RequestParam(value = "reemplazar", defaultValue = "false") boolean reemplazar) {
+        return cvService.uploadCv(authentication.getName(), file, resumen, perfilLaboralId, reemplazar);
     }
 
     @DeleteMapping("/{cvId}")

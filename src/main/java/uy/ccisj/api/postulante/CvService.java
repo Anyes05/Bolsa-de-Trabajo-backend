@@ -23,6 +23,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.domain.EstadoCivil;
@@ -50,7 +52,6 @@ public class CvService {
     private final S3StorageService storageService;
     private final JdbcTemplate jdbcTemplate;
     private final int maxFileSizeMb;
-    private final int maxCvsPerPostulante;
     private final int presignedMinutes;
     private final Set<String> allowedMime;
 
@@ -61,7 +62,6 @@ public class CvService {
             S3StorageService storageService,
             JdbcTemplate jdbcTemplate,
             @Value("${app.storage.max-file-size-mb:10}") int maxFileSizeMb,
-            @Value("${app.storage.max-cvs-per-postulante:5}") int maxCvsPerPostulante,
             @Value("${app.storage.presigned-minutes:15}") int presignedMinutes,
             @Value("${app.storage.allowed-mime:}") String allowedMimeRaw) {
         this.postulanteRepository = postulanteRepository;
@@ -70,7 +70,6 @@ public class CvService {
         this.storageService = storageService;
         this.jdbcTemplate = jdbcTemplate;
         this.maxFileSizeMb = maxFileSizeMb;
-        this.maxCvsPerPostulante = maxCvsPerPostulante;
         this.presignedMinutes = presignedMinutes;
         this.allowedMime = parseAllowedMime(allowedMimeRaw);
     }
@@ -85,28 +84,26 @@ public class CvService {
 
     @Transactional
     public CvResponse uploadCv(String userEmail, MultipartFile file, String resumen, Long perfilLaboralId) {
+        return uploadCv(userEmail, file, resumen, perfilLaboralId, false);
+    }
+
+    @Transactional
+    public CvResponse uploadCv(String userEmail, MultipartFile file, String resumen, Long perfilLaboralId, boolean reemplazar) {
         var postulante = requirePostulanteByEmail(userEmail);
-
-        if (cvRepository.countByPostulanteId(postulante.getId()) >= maxCvsPerPostulante) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Alcanzaste el maximo de CVs permitidos por postulante");
-        }
-
         validateFile(file);
-        enrichPostulanteFromPdfIfMissing(postulante, file);
-
         var profile = resolvePerfil(postulante.getId(), perfilLaboralId);
-        var allCvs = cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId());
-        var profileCvs = cvRepository.findByPostulanteIdAndPerfilLaboralIdOrderByVersionDesc(postulante.getId(), profile.getId());
-        int nextVersion = allCvs.isEmpty() ? 1 : allCvs.getFirst().getVersion() + 1;
-        profileCvs.forEach(cv -> cv.setActivo(false));
-        // La base admite una sola version activa por perfil: confirma el cambio antes del nuevo INSERT.
-        cvRepository.flush();
-
-        var cv = new Cv(postulante);
+        lockProfile(postulante.getId(), profile.getId());
+        var existing = cvRepository.findByPostulanteIdAndPerfilLaboralId(postulante.getId(), profile.getId());
+        if (existing.isPresent() && !reemplazar) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Este perfil ya tiene un CV. Confirma su reemplazo para actualizarlo");
+        }
+        enrichPostulanteFromPdfIfMissing(postulante, file);
+        var cv = existing.orElseGet(() -> new Cv(postulante));
+        String oldKey = cv.getRutaArchivoCv();
         cv.setPerfilLaboral(profile);
         cv.setResumen(resumen);
-        cv.setVersion(nextVersion);
+        cv.setVersion(1);
         cv.setActivo(true);
         cv.setNombreArchivo(file.getOriginalFilename());
         cv.setMimeType(file.getContentType());
@@ -117,61 +114,55 @@ public class CvService {
         String key = "postulantes/" + postulante.getId() + "/cvs/" + UUID.randomUUID() + extension;
         cv.setRutaArchivoCv(key);
 
-        var saved = cvRepository.save(cv);
-
         try {
             storageService.putObject(key, file);
-            return toResponse(saved);
         } catch (RuntimeException exception) {
-            LOGGER.error(
-                    "Fallo upload CV a S3 postulanteId={} cvId={} key={} fileName={} contentType={} size={}",
-                    postulante.getId(),
-                    saved.getId(),
-                    key,
-                    file.getOriginalFilename(),
-                    file.getContentType(),
-                    file.getSize(),
-                    exception);
-            cvRepository.delete(saved);
+            LOGGER.error("Fallo upload CV a S3 postulanteId={} key={}", postulante.getId(), key, exception);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "No se pudo almacenar el archivo en S3", exception);
         }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    try {
+                        storageService.deleteObject(key);
+                    } catch (RuntimeException exception) {
+                        LOGGER.error("No se pudo limpiar CV tras rollback ruta={}", key, exception);
+                    }
+                }
+            }
+        });
+        var saved = cvRepository.saveAndFlush(cv);
+        queueDeletion(oldKey);
+        return toResponse(saved);
     }
 
-    @Transactional
-    public CvResponse activateCv(String userEmail, Long cvId) {
-        var postulante = requirePostulanteByEmail(userEmail);
-        var target = cvRepository.findByIdAndPostulanteId(cvId, postulante.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado"));
+    private void queueDeletion(String key) {
+        if (key != null && !key.isBlank()) {
+            jdbcTemplate.update("INSERT INTO cv_archivos_pendientes_borrado (ruta) VALUES (?) ON CONFLICT DO NOTHING", key);
+        }
+    }
 
-        var profileCvs = cvRepository.findByPostulanteIdAndPerfilLaboralIdOrderByVersionDesc(
-            postulante.getId(), target.getPerfilLaboral().getId());
-        profileCvs.forEach(cv -> cv.setActivo(cv.getId().equals(target.getId())));
-
-        return toResponse(target);
+    private void lockProfile(Long postulanteId, Long profileId) {
+        jdbcTemplate.queryForObject("SELECT id FROM perfiles_laborales WHERE id = ? AND postulante_id = ? FOR UPDATE",
+                Long.class, profileId, postulanteId);
     }
 
     @Transactional
     public void deleteCv(String userEmail, Long cvId) {
         var postulante = requirePostulanteByEmail(userEmail);
-        var cv = cvRepository.findByIdAndPostulanteId(cvId, postulante.getId())
+        var owned = cvRepository.findByIdAndPostulanteId(cvId, postulante.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado"));
-
-        try {
-            storageService.deleteObject(cv.getRutaArchivoCv());
-        } catch (RuntimeException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "No se pudo eliminar el archivo en S3", exception);
+        lockProfile(postulante.getId(), owned.getPerfilLaboral().getId());
+        // El bloqueo se toma antes de releer para no limpiar una ruta reemplazada en paralelo.
+        var keys = jdbcTemplate.queryForList("SELECT ruta_archivo_cv FROM cvs WHERE id = ?", String.class, cvId);
+        if (keys.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado");
         }
-
-        boolean wasActive = cv.isActivo();
-        cvRepository.delete(cv);
-
-        if (wasActive) {
-            cvRepository.findByPostulanteIdOrderByVersionDesc(postulante.getId()).stream()
-                    .findFirst()
-                    .ifPresent(next -> next.setActivo(true));
-        }
+        queueDeletion(keys.getFirst());
+        cvRepository.delete(owned);
+        cvRepository.flush();
     }
 
     @Transactional(readOnly = true)
@@ -382,12 +373,10 @@ public class CvService {
         return new CvResponse(
                 cv.getId(),
             cv.getPerfilLaboral() == null ? null : cv.getPerfilLaboral().getId(),
-                cv.getVersion(),
                 cv.getResumen(),
                 cv.getNombreArchivo(),
                 cv.getMimeType(),
                 cv.getSizeBytes(),
-                cv.isActivo(),
                 cv.getFechaCarga(),
                 downloadUrl);
     }
