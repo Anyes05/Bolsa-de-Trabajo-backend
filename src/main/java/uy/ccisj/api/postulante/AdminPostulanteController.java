@@ -66,7 +66,7 @@ public class AdminPostulanteController {
                  ORDER BY p.nombre_completo, pl.id
                 """, (rs, rowNum) -> {
             String fullName = rs.getString("nombre_completo");
-            List<String> sectors = splitRubros(rs.getString("rubros"));
+            List<String> sectors = ApplicantViews.splitRubros(rs.getString("rubros"));
             boolean cuentaActiva = rs.getBoolean("cuenta_activa");
             boolean visibleEnBolsa = rs.getBoolean("visible_en_bolsa");
             boolean perfilVisible = rs.getBoolean("perfil_visible");
