@@ -44,8 +44,8 @@ class PostulanteNotificacionTest {
         var notice = new Notificacion(applicant, "Resultado", "No seleccionado/a", false);
         when(notices.findByIdAndUsuarioId(15L, 99L)).thenReturn(Optional.of(notice));
         when(notices.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        assertTrue(service.markOneReadPostulante("applicant@example.test", 15L).leida());
-        service.markAllReadPostulante("applicant@example.test");
+        assertTrue(service.markOneRead("applicant@example.test", 15L, Role.POSTULANTE).leida());
+        service.markAllRead("applicant@example.test", Role.POSTULANTE);
         verify(notices).markAllRead(99L);
     }
 
@@ -53,7 +53,7 @@ class PostulanteNotificacionTest {
     void cannotReadAnotherAccountsNotification() {
         when(notices.findByIdAndUsuarioId(15L, 99L)).thenReturn(Optional.empty());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
-                () -> service.markOneReadPostulante("applicant@example.test", 15L)).getStatusCode());
+                () -> service.markOneRead("applicant@example.test", 15L, Role.POSTULANTE)).getStatusCode());
         verify(notices, never()).save(any());
     }
 
@@ -61,7 +61,7 @@ class PostulanteNotificacionTest {
     void inactiveApplicantCannotReadNotifications() {
         when(applicant.isActivo()).thenReturn(false);
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ResponseStatusException.class,
-                () -> service.listForPostulante("applicant@example.test")).getStatusCode());
+                () -> service.list("applicant@example.test", Role.POSTULANTE)).getStatusCode());
         verifyNoInteractions(notices);
     }
 }
