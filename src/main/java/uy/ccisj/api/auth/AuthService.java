@@ -84,6 +84,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.setDebeCambiarPassword(false);
         user.setPasswordProvisionalHasta(null);
+        user.bumpTokenVersion();
         userRepository.save(user);
         return authResponse(user);
     }
@@ -117,32 +118,21 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse registerApplicant(RegisterApplicantRequest request) {
-        var availability = registrationAvailability(request.email(), request.identityCard());
-        if (availability.emailExists()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
-        }
-        if (availability.identityCardExists()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cédula ya está registrada");
-        }
+    public void logout(String principalEmail) {
+        User user = userRepository.findByEmailIgnoreCase(principalEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado"));
+        user.bumpTokenVersion();
+        userRepository.save(user);
+    }
 
+    @Transactional
+    public AuthResponse registerApplicant(RegisterApplicantRequest request) {
+        rejectIfTaken(request.email(), request.identityCard());
         Long userId = insertAndReturnId("INSERT INTO usuarios (email, password_hash, rol) VALUES (?, ?, 'POSTULANTE')",
                 request.email().trim().toLowerCase(), passwordEncoder.encode(request.password()));
-        Long applicantId = insertAndReturnId("INSERT INTO postulantes (usuario_id, nombre_completo, cedula_identidad, telefono, zona_residencia) VALUES (?, ?, ?, ?, ?)",
-                userId, request.fullName(), request.identityCard(), request.phone(), request.residenceArea());
-        Long profileId = insertAndReturnId("INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo, descripcion_experiencia) VALUES (?, ?, ?, ?, ?, ?)",
-                applicantId, request.profileName(), request.availability(), request.hasVehicle(), request.latestJob(), request.experienceDescription());
-
-        String placeholders = String.join(",", Collections.nCopies(request.sectors().size(), "?"));
-        List<Long> sectorIds = jdbcTemplate.queryForList(
-            "SELECT id FROM rubros_empleo WHERE activo = true AND nombre_rubro IN (" + placeholders + ")",
-            Long.class,
-            request.sectors().toArray());
-        if (sectorIds.size() != request.sectors().stream().distinct().count()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o mas rubros no son validos");
-        }
-        sectorIds.forEach(sectorId -> jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
-
+        persistApplicantProfile(userId, request.fullName(), request.identityCard(), request.phone(),
+                request.residenceArea(), request.profileName(), request.availability(), request.hasVehicle(),
+                request.latestJob(), request.experienceDescription(), request.sectors());
         User user = userRepository.findById(userId).orElseThrow();
         return authResponse(user);
     }
@@ -151,15 +141,9 @@ public class AuthService {
     public AuthResponse registerGoogleApplicant(
             GoogleRegistrationRequest request,
             GoogleTokenVerifier.GoogleIdentity identity) {
-        var availability = registrationAvailability(identity.email(), request.identityCard());
-        if (availability.emailExists()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
-        }
-        if (availability.identityCardExists()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cédula ya está registrada");
-        }
+        rejectIfTaken(identity.email(), request.identityCard());
         if (userRepository.findByGoogleSubject(identity.subject()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta cuenta de Google ya esta registrada. Inicia sesion.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo completar el registro. Iniciá sesión o usá otra cuenta.");
         }
 
         String passwordPlaceholder = passwordEncoder.encode(UUID.randomUUID().toString());
@@ -172,35 +156,49 @@ public class AuthService {
                 passwordPlaceholder,
                 identity.subject(),
                 identity.fotoUrl());
+        persistApplicantProfile(userId, request.fullName(), request.identityCard(), request.phone(),
+                request.residenceArea(), request.profileName(), request.availability(), request.hasVehicle(),
+                request.latestJob(), request.experienceDescription(), request.sectors());
+        User user = userRepository.findById(userId).orElseThrow();
+        return authResponse(user);
+    }
+
+    private void persistApplicantProfile(
+            Long userId,
+            String fullName,
+            String identityCard,
+            String phone,
+            String residenceArea,
+            String profileName,
+            String availability,
+            boolean hasVehicle,
+            String latestJob,
+            String experienceDescription,
+            List<String> sectors) {
         Long applicantId = insertAndReturnId(
                 "INSERT INTO postulantes (usuario_id, nombre_completo, cedula_identidad, telefono, zona_residencia) VALUES (?, ?, ?, ?, ?)",
-                userId,
-                request.fullName(),
-                request.identityCard(),
-                request.phone(),
-                request.residenceArea());
+                userId, fullName, identityCard, phone, residenceArea);
         Long profileId = insertAndReturnId(
                 "INSERT INTO perfiles_laborales (postulante_id, nombre, disponibilidad_horaria, tiene_vehiculo, ultimo_empleo, descripcion_experiencia) VALUES (?, ?, ?, ?, ?, ?)",
-                applicantId,
-                request.profileName(),
-                request.availability(),
-                request.hasVehicle(),
-                request.latestJob(),
-                request.experienceDescription());
-
-        String placeholders = String.join(",", Collections.nCopies(request.sectors().size(), "?"));
+                applicantId, profileName, availability, hasVehicle, latestJob, experienceDescription);
+        String placeholders = String.join(",", Collections.nCopies(sectors.size(), "?"));
         List<Long> sectorIds = jdbcTemplate.queryForList(
                 "SELECT id FROM rubros_empleo WHERE activo = true AND nombre_rubro IN (" + placeholders + ")",
                 Long.class,
-                request.sectors().toArray());
-        if (sectorIds.size() != request.sectors().stream().distinct().count()) {
+                sectors.toArray());
+        if (sectorIds.size() != sectors.stream().distinct().count()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o mas rubros no son validos");
         }
         sectorIds.forEach(sectorId ->
                 jdbcTemplate.update("INSERT INTO perfil_rubros (perfil_id, rubro_id) VALUES (?, ?)", profileId, sectorId));
+    }
 
-        User user = userRepository.findById(userId).orElseThrow();
-        return authResponse(user);
+    private void rejectIfTaken(String email, String identityCard) {
+        var availability = registrationAvailability(email, identityCard);
+        if (availability.emailExists() || availability.identityCardExists()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se pudo completar el registro. Revisá los datos o iniciá sesión.");
+        }
     }
 
     AuthResponse authResponse(User user) {

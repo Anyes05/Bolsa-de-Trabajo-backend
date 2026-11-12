@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
+import uy.ccisj.api.common.ApplicantViews;
 import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.notificacion.Notificacion;
@@ -94,17 +95,17 @@ public class SocioBolsaController {
                  ORDER BY pl.id DESC
                 """, (rs, rowNum) -> {
                     String fullName = rs.getString("nombre_completo");
-                    List<String> sectors = splitRubros(rs.getString("rubros"));
+                    List<String> sectors = ApplicantViews.splitRubros(rs.getString("rubros"));
                     String availability = rs.getString("disponibilidad_horaria");
                     return new ApplicantProfileCard(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
-                            rs.getString("email"), rs.getString("telefono"), initials(fullName),
+                            rs.getString("email"), rs.getString("telefono"), ApplicantViews.initials(fullName),
                             rs.getString("perfil_nombre"), sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
                             rs.getString("zona_residencia"), sectors, availability, rs.getString("libreta"),
                             rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_postulacion"),
                             rs.getBoolean("tiene_cv"),
                             rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                             rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
-                            rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
+                            rs.getString("nombre_archivo"), ApplicantViews.cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
                             ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
                                     rs.getString("google_photo_url")));
                 }, socioId, rubro == null || rubro.isBlank() ? null : rubro.trim(),
@@ -113,25 +114,33 @@ public class SocioBolsaController {
 
     @GetMapping("/{profileId}/cvs")
     public List<ProfileCv> listCvs(Authentication authentication, @PathVariable Long profileId) {
-        requireProfileApplication(profileId, requireEligibleSocio(authentication.getName()));
+        Long socioId = requireEligibleSocio(authentication.getName());
         return jdbcTemplate.query("""
-                SELECT id, nombre_archivo, size_bytes, activo, fecha_carga
-                  FROM cvs
-                 WHERE perfil_laboral_id = ?
-                 ORDER BY activo DESC, fecha_carga DESC, id DESC
+                SELECT cv.id, cv.nombre_archivo, cv.size_bytes, cv.activo, cv.fecha_carga
+                  FROM cvs cv
+                 WHERE cv.id IN (
+                     SELECT a.cv_id
+                       FROM postulaciones a
+                       JOIN ofertas_empleo o ON o.id = a.oferta_id
+                      WHERE a.perfil_laboral_id = ? AND o.socio_id = ? AND a.cv_id IS NOT NULL
+                 )
+                 ORDER BY cv.fecha_carga DESC, cv.id DESC
                 """, (rs, rowNum) -> new ProfileCv(rs.getLong("id"), rs.getString("nombre_archivo"),
-                        cvMeta(rs.getLong("size_bytes"), rs.wasNull()), rs.getBoolean("activo"),
-                        rs.getObject("fecha_carga", java.time.OffsetDateTime.class)), profileId);
+                        ApplicantViews.cvMeta(rs.getLong("size_bytes"), rs.wasNull()), rs.getBoolean("activo"),
+                        rs.getObject("fecha_carga", java.time.OffsetDateTime.class)), profileId, socioId);
     }
 
     @GetMapping("/{profileId}/cvs/{cvId}")
     public CvLink downloadCv(Authentication authentication, @PathVariable Long profileId, @PathVariable Long cvId) {
-        requireProfileApplication(profileId, requireEligibleSocio(authentication.getName()));
+        Long socioId = requireEligibleSocio(authentication.getName());
         String key = jdbcTemplate.query("""
-                SELECT ruta_archivo_cv
-                  FROM cvs
-                 WHERE id = ? AND perfil_laboral_id = ?
-                """, rs -> rs.next() ? rs.getString(1) : null, cvId, profileId);
+                SELECT cv.ruta_archivo_cv
+                  FROM cvs cv
+                  JOIN postulaciones a ON a.cv_id = cv.id
+                  JOIN ofertas_empleo o ON o.id = a.oferta_id
+                 WHERE cv.id = ? AND a.perfil_laboral_id = ? AND o.socio_id = ?
+                 LIMIT 1
+                """, rs -> rs.next() ? rs.getString(1) : null, cvId, profileId, socioId);
         if (key == null || key.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "CV no encontrado para este perfil");
         }
@@ -214,21 +223,6 @@ public class SocioBolsaController {
         return new ContactNotification("Notificación enviada a " + recipient.applicantEmail());
         }
 
-    private void requireProfileApplication(Long profileId, Long socioId) {
-        Boolean hasApplication = jdbcTemplate.queryForObject("""
-                SELECT EXISTS (
-                    SELECT 1
-                      FROM postulaciones a
-                      JOIN ofertas_empleo o ON o.id = a.oferta_id
-                     WHERE a.perfil_laboral_id = ? AND o.socio_id = ?
-                )
-                """, Boolean.class, profileId, socioId);
-        if (!Boolean.TRUE.equals(hasApplication)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "El perfil no se postuló a una oferta de tu empresa");
-        }
-    }
-
     private Long requireEligibleSocio(String email) {
         var user = userRepository.findByEmailIgnoreCase(email)
                 .filter(candidate -> candidate.isActivo() && candidate.getRole() == Role.SOCIO)
@@ -237,28 +231,6 @@ public class SocioBolsaController {
         var socio = socioRepository.findByUsuarioId(user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Socio no encontrado"));
         return socio.getId();
-    }
-
-    private List<String> splitRubros(String value) {
-        if (value == null || value.isBlank()) return List.of();
-        return java.util.Arrays.stream(value.split("\\|"))
-                .filter(item -> !item.isBlank())
-                .toList();
-    }
-
-    private String initials(String fullName) {
-        return java.util.Arrays.stream(fullName.split("\\s+"))
-                .filter(part -> !part.isBlank())
-                .limit(2)
-                .map(part -> part.substring(0, 1).toUpperCase())
-                .collect(java.util.stream.Collectors.joining());
-    }
-
-    private String cvMeta(long sizeBytes, boolean wasNull) {
-        if (wasNull || sizeBytes <= 0) return "PDF oficial";
-        return "PDF oficial · " + (sizeBytes < 1024 * 1024
-                ? Math.max(1, Math.round(sizeBytes / 1024.0)) + " KB"
-                : String.format(java.util.Locale.ROOT, "%.1f MB", sizeBytes / (1024.0 * 1024.0)));
     }
 
         public record ApplicantProfileCard(Long id, Long applicantId, String fullName, String email, String phone, String initials, String profileName,

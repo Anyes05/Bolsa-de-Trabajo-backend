@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
+import uy.ccisj.api.common.ApplicantViews;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.UserRepository;
@@ -70,13 +71,13 @@ public class AdminPostulanteController {
             boolean visibleEnBolsa = rs.getBoolean("visible_en_bolsa");
             boolean perfilVisible = rs.getBoolean("perfil_visible");
             return new ApplicantProfile(rs.getLong("id"), rs.getLong("postulante_id"), fullName,
-                    rs.getString("email"), rs.getString("telefono"), initials(fullName), rs.getString("perfil_nombre"),
+                    rs.getString("email"), rs.getString("telefono"), ApplicantViews.initials(fullName), rs.getString("perfil_nombre"),
                     sectors.isEmpty() ? "OTROS" : sectors.getFirst().toUpperCase(),
                     rs.getString("zona_residencia"), sectors, rs.getString("disponibilidad_horaria"),
                     rs.getString("libreta"), rs.getBoolean("tiene_vehiculo"), rs.getBoolean("tiene_cv"),
                     rs.getString("cedula_identidad"), (Integer) rs.getObject("edad"),
                     rs.getString("descripcion_experiencia"), rs.getString("ultimo_empleo"),
-                    rs.getString("nombre_archivo"), cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
+                    rs.getString("nombre_archivo"), ApplicantViews.cvMeta(rs.getLong("size_bytes"), rs.wasNull()),
                     ProfilePhotoService.photoUrl(rs.getBytes("foto_perfil"), rs.getString("foto_mime"),
                             rs.getString("google_photo_url")),
                     cuentaActiva, visibleEnBolsa, perfilVisible,
@@ -101,7 +102,7 @@ public class AdminPostulanteController {
                  WHERE perfil_laboral_id = ?
                  ORDER BY activo DESC, fecha_carga DESC, id DESC
                 """, (rs, rowNum) -> new ProfileCv(rs.getLong("id"), rs.getString("nombre_archivo"),
-                        cvMeta(rs.getLong("size_bytes"), rs.wasNull()), rs.getBoolean("activo"),
+                        ApplicantViews.cvMeta(rs.getLong("size_bytes"), rs.wasNull()), rs.getBoolean("activo"),
                         rs.getObject("fecha_carga", OffsetDateTime.class)), profileId);
     }
 
@@ -124,28 +125,6 @@ public class AdminPostulanteController {
         if (!isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere una cuenta de administrador activa");
         }
-    }
-
-    private List<String> splitRubros(String value) {
-        if (value == null || value.isBlank()) return List.of();
-        return java.util.Arrays.stream(value.split("\\|"))
-                .filter(item -> !item.isBlank())
-                .toList();
-    }
-
-    private String initials(String fullName) {
-        return java.util.Arrays.stream(fullName.split("\\s+"))
-                .filter(part -> !part.isBlank())
-                .limit(2)
-                .map(part -> part.substring(0, 1).toUpperCase())
-                .collect(java.util.stream.Collectors.joining());
-    }
-
-    private String cvMeta(long sizeBytes, boolean wasNull) {
-        if (wasNull || sizeBytes <= 0) return "PDF oficial";
-        return "PDF oficial · " + (sizeBytes < 1024 * 1024
-                ? Math.max(1, Math.round(sizeBytes / 1024.0)) + " KB"
-                : String.format(java.util.Locale.ROOT, "%.1f MB", sizeBytes / (1024.0 * 1024.0)));
     }
 
     public record ApplicantProfile(Long id, Long applicantId, String fullName, String email, String phone, String initials,

@@ -135,6 +135,11 @@ public class ComunicadoService {
                 continue;
             }
             notificaciones.add(new Notificacion(usuario, comunicado, titulo, contenido, popup));
+            if (socio.isSilenciarCorreos()) {
+                LOGGER.info("Socio {} ({}) silenció correos; se notifica solo en campana",
+                        socio.getId(), socio.getRazonSocial());
+                continue;
+            }
             String email = resolveContactEmail(socio);
             if (email != null) {
                 emails.add(email);

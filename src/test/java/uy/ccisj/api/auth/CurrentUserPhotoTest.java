@@ -20,9 +20,9 @@ class CurrentUserPhotoTest {
         var principal = new UsernamePasswordAuthenticationToken(email, null);
 
         assertEquals("data:image/png;base64,AQID",
-                new AuthController(auth, photos).currentUser(principal).get("fotoUrl"));
+                new AuthController(auth, photos, mock(AuthRateLimitService.class)).currentUser(principal).get("fotoUrl"));
         assertEquals("data:image/png;base64,AQID",
-                new AuthController(auth, photos).currentUser(principal).get("fotoUrl"));
+                new AuthController(auth, photos, mock(AuthRateLimitService.class)).currentUser(principal).get("fotoUrl"));
         verify(photos, times(2)).find(email);
     }
 
@@ -31,7 +31,7 @@ class CurrentUserPhotoTest {
     void returnsExplicitNullWhenPhotoWasRemovedOrNeverUploaded(Role role) {
         var photos = mock(ProfilePhotoService.class);
         var principal = new UsernamePasswordAuthenticationToken(role.name() + "@example.test", null);
-        var response = new AuthController(mock(AuthService.class), photos).currentUser(principal);
+        var response = new AuthController(mock(AuthService.class), photos, mock(AuthRateLimitService.class)).currentUser(principal);
         assertTrue(response.containsKey("fotoUrl"));
         assertNull(response.get("fotoUrl"));
     }

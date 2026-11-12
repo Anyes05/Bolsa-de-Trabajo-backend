@@ -67,6 +67,11 @@ public class AniversarioService {
             notificacionRepository.save(new Notificacion(usuario, TITULO, cuerpo, false));
             campana++;
 
+            if (socio.isSilenciarCorreos()) {
+                LOGGER.info("Aniversario socio id={}: correos silenciados; solo campana", socio.getId());
+                continue;
+            }
+
             String email = resolveContactEmail(socio);
             if (email == null) {
                 LOGGER.warn("Aniversario socio id={}: sin email de contacto ni de cuenta", socio.getId());

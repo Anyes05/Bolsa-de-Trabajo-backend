@@ -2,7 +2,6 @@ package uy.ccisj.api.auth;
 
 import java.io.IOException;
 import java.util.Base64;
-import java.util.Locale;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -28,8 +27,7 @@ public class ProfilePhotoService {
     }
 
     public String upload(String email, MultipartFile file) {
-        String type = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        if (file.isEmpty() || !ALLOWED_TYPES.contains(type) || file.getSize() > 5 * 1024 * 1024) {
+        if (file == null || file.isEmpty() || file.getSize() > 5 * 1024 * 1024) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser JPG, PNG o WEBP de hasta 5 MB");
         }
         byte[] photo;
@@ -37,6 +35,10 @@ public class ProfilePhotoService {
             photo = file.getBytes();
         } catch (IOException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo procesar la foto", exception);
+        }
+        String type = FileSignatures.detectImageMime(photo);
+        if (type == null || !ALLOWED_TYPES.contains(type)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser JPG, PNG o WEBP de hasta 5 MB");
         }
         requireUpdated(jdbcTemplate.update(
                 "UPDATE usuarios SET foto_perfil = ?, foto_mime = ? WHERE email = ? AND activo = TRUE",

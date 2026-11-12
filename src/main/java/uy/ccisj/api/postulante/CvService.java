@@ -1,5 +1,8 @@
 package uy.ccisj.api.postulante;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -27,6 +30,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.auth.FileSignatures;
 import uy.ccisj.api.domain.EstadoCivil;
 import uy.ccisj.api.domain.Genero;
 import uy.ccisj.api.storage.S3StorageService;
@@ -98,7 +102,8 @@ public class CvService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Este perfil ya tiene un CV. Confirma su reemplazo para actualizarlo");
         }
-        enrichPostulanteFromPdfIfMissing(postulante, file);
+        String detectedMime = detectDocumentMime(file);
+        enrichPostulanteFromPdfIfMissing(postulante, file, detectedMime);
         var cv = existing.orElseGet(() -> new Cv(postulante));
         String oldKey = cv.getRutaArchivoCv();
         cv.setPerfilLaboral(profile);
@@ -106,7 +111,7 @@ public class CvService {
         cv.setVersion(1);
         cv.setActivo(true);
         cv.setNombreArchivo(file.getOriginalFilename());
-        cv.setMimeType(file.getContentType());
+        cv.setMimeType(detectedMime);
         cv.setSizeBytes(file.getSize());
         cv.setFechaCarga(OffsetDateTime.now());
 
@@ -247,22 +252,32 @@ public class CvService {
                     "El archivo supera el tamano maximo permitido de " + maxFileSizeMb + " MB");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !allowedMime.contains(contentType.toLowerCase(Locale.ROOT))) {
+        detectDocumentMime(file);
+    }
+
+    private String detectDocumentMime(MultipartFile file) {
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo leer el archivo de CV", exception);
+        }
+        String detected = FileSignatures.detectDocumentMime(bytes);
+        if (detected == null || !allowedMime.contains(detected)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Tipo de archivo no permitido. Solo PDF o DOCX");
         }
+        return detected;
     }
 
-    private void enrichPostulanteFromPdfIfMissing(Postulante postulante, MultipartFile file) {
+    private void enrichPostulanteFromPdfIfMissing(Postulante postulante, MultipartFile file, String mimeType) {
         if (postulante.getFechaNacimiento() != null
                 && postulante.getGenero() != null
                 && postulante.getEstadoCivil() != null) {
             return;
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.equalsIgnoreCase("application/pdf")) {
+        if (!"application/pdf".equalsIgnoreCase(mimeType)) {
             return;
         }
 
@@ -285,9 +300,18 @@ public class CvService {
     }
 
     private String extractPdfText(MultipartFile file) throws Exception {
-        try (PDDocument document = Loader.loadPDF(file.getBytes())) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            return stripper.getText(document);
+        Path temp = Files.createTempFile("ccisj-cv-", ".pdf");
+        try {
+            Files.write(temp, file.getBytes());
+            try (PDDocument document = Loader.loadPDF(temp.toFile())) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                int pages = Math.min(8, Math.max(1, document.getNumberOfPages()));
+                stripper.setStartPage(1);
+                stripper.setEndPage(pages);
+                return stripper.getText(document);
+            }
+        } finally {
+            Files.deleteIfExists(temp);
         }
     }
 

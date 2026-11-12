@@ -1,5 +1,6 @@
 package uy.ccisj.api.auth;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
@@ -17,4 +18,5 @@ public record GoogleRegistrationRequest(
         @NotBlank @Pattern(regexp = "FULL_TIME|PART_TIME") String availability,
         boolean hasVehicle,
         @Size(max = 200) String latestJob,
-        @Size(max = 4000) String experienceDescription) {}
+        @Size(max = 4000) String experienceDescription,
+        @AssertTrue(message = "Debés aceptar los términos y condiciones") boolean acceptedTerms) {}

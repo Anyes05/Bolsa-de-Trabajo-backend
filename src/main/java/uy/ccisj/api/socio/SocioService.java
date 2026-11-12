@@ -91,7 +91,6 @@ public class SocioService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El directorio solo está disponible para socios directivos");
         }
         return socioRepository.findAllByOrderByRazonSocialAsc().stream()
-                .filter(socio -> socio.getUsuario() != null && socio.getUsuario().isActivo())
                 .map(this::toDirectorio)
                 .toList();
     }
@@ -118,6 +117,16 @@ public class SocioService {
             direccion.setLocalidad(validateLocalidad(dto.localidad()));
         }
         socio.setDireccion(direccionRepository.save(direccion));
+        return toResponse(socioRepository.save(socio));
+    }
+
+    @Transactional
+    public SocioResponseDTO updateSilenciarCorreos(String principalEmail, Boolean silenciarCorreos) {
+        if (silenciarCorreos == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indicá si querés silenciar los correos");
+        }
+        Socio socio = requireSocio(principalEmail);
+        socio.setSilenciarCorreos(silenciarCorreos);
         return toResponse(socioRepository.save(socio));
     }
 
@@ -614,7 +623,8 @@ public class SocioService {
                         user.getFotoPerfil(), user.getFotoMime(), user.getGooglePhotoUrl()),
                 CamposFicticios.list(socio.getCamposFicticios()),
                 socio.isImportadoMasivo(),
-                socio.isAccesoHabilitado());
+                socio.isAccesoHabilitado(),
+                socio.isSilenciarCorreos());
     }
 
     private TipoIdentificadorSocio resolveTipoIdentificador(String bps, String cedula) {

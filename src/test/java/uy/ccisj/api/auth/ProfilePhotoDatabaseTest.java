@@ -81,7 +81,7 @@ class ProfilePhotoDatabaseTest {
         when(jwt.googleRegistrationIdentity("registration-only")).thenReturn(identity);
         String sector = jdbc.queryForObject("SELECT nombre_rubro FROM rubros_empleo WHERE activo = true ORDER BY id LIMIT 1", String.class);
         var request = new GoogleRegistrationRequest("registration-only", "Edited Google Name", "google-card", "091111111",
-                "Test", "Google Profile", java.util.List.of(sector), "FULL_TIME", false, "", "");
+                "Test", "Google Profile", java.util.List.of(sector), "FULL_TIME", false, "", "", true);
         var google = new GoogleAuthService(mock(GoogleTokenVerifier.class), users, auth, jwt, jdbc, passwordEncoder,
                 mock(uy.ccisj.api.postulante.RetencionPermanenciaService.class));
         assertEquals("test-session", google.register(request).token());
@@ -101,14 +101,15 @@ class ProfilePhotoDatabaseTest {
         assertFalse(passwordEncoder.matches("test-session", jdbc.queryForObject(
                 "SELECT password_hash FROM usuarios WHERE email = ?", String.class, identity.email())));
         assertThrows(ResponseStatusException.class, () -> google.register(request));
-        photos.upload(identity.email(), new MockMultipartFile("file", "custom.png", "image/png", new byte[] {1}));
-        assertEquals("data:image/png;base64,AQ==", photos.find(identity.email()));
+        byte[] customPng = png(new byte[] {1});
+        photos.upload(identity.email(), new MockMultipartFile("file", "custom.png", "image/png", customPng));
+        assertEquals(dataUrl("image/png", customPng), photos.find(identity.email()));
         photos.remove(identity.email());
         assertNull(photos.find(identity.email()));
         assertNull(jdbc.queryForObject("SELECT google_photo_url FROM usuarios WHERE email = ?", String.class, identity.email()));
 
         var normal = new RegisterApplicantRequest("Password Demo", "password-card", "092222222", "password-demo@example.test",
-                "Test-only-password-42", "Test", "Password Profile", java.util.List.of(sector), "PART_TIME", false, "", "");
+                "Test-only-password-42", "Test", "Password Profile", java.util.List.of(sector), "PART_TIME", false, "", "", true);
         auth.registerApplicant(normal);
         assertNull(jdbc.queryForObject("SELECT google_subject FROM usuarios WHERE email = ?", String.class, normal.email()));
         assertTrue(passwordEncoder.matches(normal.password(), jdbc.queryForObject(
@@ -149,11 +150,13 @@ class ProfilePhotoDatabaseTest {
     void persistsReplacementsForEveryRoleAndRemovalWithoutAffectingOtherAccounts() {
         for (String role : new String[] {"admin", "socio", "postulante"}) {
             String email = "avatar-" + role + "@example.test";
-            var file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {4, 5, 6});
+            byte[] first = png(new byte[] {4, 5, 6});
+            var file = new MockMultipartFile("file", "photo.png", "image/png", first);
             photos.upload(email, file);
-            assertEquals("data:image/png;base64,BAUG", new ProfilePhotoService(jdbc).find(email));
-            photos.upload(email, new MockMultipartFile("file", "photo.png", "image/png", new byte[] {7}));
-            assertEquals("data:image/png;base64,Bw==", new ProfilePhotoService(jdbc).find(email));
+            assertEquals(dataUrl("image/png", first), new ProfilePhotoService(jdbc).find(email));
+            byte[] second = png(new byte[] {7});
+            photos.upload(email, new MockMultipartFile("file", "photo.png", "image/png", second));
+            assertEquals(dataUrl("image/png", second), new ProfilePhotoService(jdbc).find(email));
             photos.remove(email);
             assertNull(new ProfilePhotoService(jdbc).find(email));
             assertEquals("data:image/png;base64,AQID", photos.find(APPLICANT));
@@ -167,7 +170,7 @@ class ProfilePhotoDatabaseTest {
                 INSERT INTO usuarios (email, password_hash, rol, bps)
                 VALUES (?, 'test-only', 'SOCIO', 'photo-persistence') RETURNING id
                 """, Long.class, email);
-        photos.upload(email, new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3}));
+        photos.upload(email, new MockMultipartFile("file", "photo.png", "image/png", png(new byte[] {1, 2, 3})));
         var factory = new org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
         factory.setPackagesToScan("uy.ccisj.api");
@@ -175,18 +178,19 @@ class ProfilePhotoDatabaseTest {
         factory.afterPropertiesSet();
         try (var em = factory.getObject().createEntityManager()) {
             User loaded = em.find(User.class, id);
-            assertArrayEquals(new byte[] {1, 2, 3}, loaded.getFotoPerfil());
+            assertArrayEquals(png(new byte[] {1, 2, 3}), loaded.getFotoPerfil());
             assertEquals("image/png", loaded.getFotoMime());
-            photos.upload(email, new MockMultipartFile("file", "photo.webp", "image/webp", new byte[] {4}));
+            byte[] webp = webp((byte) 4);
+            photos.upload(email, new MockMultipartFile("file", "photo.webp", "image/webp", webp));
             em.getTransaction().begin();
             loaded.setPasswordHash("updated-test-only");
             em.getTransaction().commit();
             em.clear();
             User reloaded = em.find(User.class, id);
-            assertArrayEquals(new byte[] {4}, reloaded.getFotoPerfil());
+            assertArrayEquals(webp, reloaded.getFotoPerfil());
             assertEquals("image/webp", reloaded.getFotoMime());
-            assertEquals("data:image/webp;base64,BA==",
-                    new AuthController(mock(AuthService.class), new ProfilePhotoService(jdbc)).currentUser(
+            assertEquals(dataUrl("image/webp", webp),
+                    new AuthController(mock(AuthService.class), new ProfilePhotoService(jdbc), mock(AuthRateLimitService.class)).currentUser(
                             new UsernamePasswordAuthenticationToken(email, null)).get("fotoUrl"));
             photos.remove(email);
             em.clear();
@@ -195,5 +199,20 @@ class ProfilePhotoDatabaseTest {
         } finally {
             factory.destroy();
         }
+    }
+
+    private static byte[] png(byte[] extra) {
+        byte[] header = FileSignatures.PNG_HEADER;
+        byte[] out = java.util.Arrays.copyOf(header, header.length + extra.length);
+        System.arraycopy(extra, 0, out, header.length, extra.length);
+        return out;
+    }
+
+    private static byte[] webp(byte extra) {
+        return new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P', extra};
+    }
+
+    private static String dataUrl(String mime, byte[] bytes) {
+        return "data:" + mime + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
     }
 }

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import uy.ccisj.api.common.ApplicantViews;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.socio.SocioRepository;
 import uy.ccisj.api.user.Role;
@@ -68,15 +69,15 @@ public class SocioPostulacionController {
                           cv.nombre_archivo, cv.size_bytes
                  ORDER BY a.fecha DESC
                 """, (rs, rowNum) -> new ReceivedApplication(rs.getLong("id"),
-                rs.getString("nombre_completo"), initials(rs.getString("nombre_completo")),
+                rs.getString("nombre_completo"), ApplicantViews.initials(rs.getString("nombre_completo")),
                 rs.getLong("perfil_id"), rs.getString("perfil_nombre"), rs.getString("zona_residencia"),
-                splitRubros(rs.getString("rubros")), rs.getString("estado"),
+                ApplicantViews.splitRubros(rs.getString("rubros")), rs.getString("estado"),
                 formatDate(rs.getObject("fecha", OffsetDateTime.class)),
                 rs.getString("disponibilidad_horaria"), rs.getBoolean("tiene_vehiculo"),
                 rs.getString("libreta"), rs.getString("ultimo_empleo"), rs.getString("descripcion_experiencia"),
                 rs.getString("cedula_identidad"), rs.getString("telefono"),
                 rs.getObject("cv_id", Long.class), rs.getString("nombre_archivo"),
-                cvMeta(rs.getLong("size_bytes"), rs.wasNull())), socioId, ofertaId);
+                ApplicantViews.cvMeta(rs.getLong("size_bytes"), rs.wasNull())), socioId, ofertaId);
     }
 
     @PatchMapping("/postulaciones/{postulacionId}/estado")
@@ -127,24 +128,6 @@ public class SocioPostulacionController {
             case CONTACTADA -> next == EstadoPostulacion.SELECCIONADA || next == EstadoPostulacion.DESCARTADA;
             case SELECCIONADA, DESCARTADA -> false;
         };
-    }
-
-    private List<String> splitRubros(String value) {
-        if (value == null || value.isBlank()) return List.of();
-        return java.util.Arrays.stream(value.split("\\|"))
-                .filter(item -> !item.isBlank()).toList();
-    }
-
-    private String initials(String fullName) {
-        return java.util.Arrays.stream(fullName.split("\\s+"))
-                .filter(part -> !part.isBlank()).limit(2)
-                .map(part -> part.substring(0, 1).toUpperCase())
-                .collect(java.util.stream.Collectors.joining());
-    }
-
-    private String cvMeta(long sizeBytes, boolean wasNull) {
-        if (wasNull || sizeBytes <= 0) return "PDF oficial";
-        return "PDF oficial · " + Math.max(1, Math.round(sizeBytes / 1024.0)) + " KB";
     }
 
     private String formatDate(OffsetDateTime date) {

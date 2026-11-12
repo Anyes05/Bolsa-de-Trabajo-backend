@@ -202,7 +202,7 @@ class SingleCvDatabaseTest {
     }
 
     private MockMultipartFile file(String name) {
-        return new MockMultipartFile("file", name, "application/pdf", new byte[] {1, 2, 3});
+        return new MockMultipartFile("file", name, "application/pdf", "%PDF-1.4\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
     }
 
     private CvResponse upload(String name, boolean replace) {

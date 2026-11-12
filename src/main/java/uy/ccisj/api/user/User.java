@@ -49,6 +49,9 @@ public class User {
     @Column(name = "password_provisional_hasta")
     private OffsetDateTime passwordProvisionalHasta;
 
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
     @Column(name = "google_subject", unique = true, length = 255)
     private String googleSubject;
 
@@ -97,6 +100,12 @@ public class User {
     public OffsetDateTime getPasswordProvisionalHasta() { return passwordProvisionalHasta; }
     public void setPasswordProvisionalHasta(OffsetDateTime passwordProvisionalHasta) {
         this.passwordProvisionalHasta = passwordProvisionalHasta;
+    }
+    public int getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
+    public int bumpTokenVersion() {
+        this.tokenVersion = this.tokenVersion + 1;
+        return this.tokenVersion;
     }
     public String getGoogleSubject() { return googleSubject; }
     public void setGoogleSubject(String googleSubject) { this.googleSubject = googleSubject; }

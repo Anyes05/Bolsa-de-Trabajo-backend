@@ -75,6 +75,9 @@ public class Socio {
     @Column(name = "acceso_habilitado", nullable = false)
     private boolean accesoHabilitado = true;
 
+    @Column(name = "silenciar_correos", nullable = false)
+    private boolean silenciarCorreos;
+
     @OneToMany(mappedBy = "socio", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Cuota> cuotas = new ArrayList<>();
 
@@ -118,6 +121,8 @@ public class Socio {
     public void setImportadoMasivo(boolean importadoMasivo) { this.importadoMasivo = importadoMasivo; }
     public boolean isAccesoHabilitado() { return accesoHabilitado; }
     public void setAccesoHabilitado(boolean accesoHabilitado) { this.accesoHabilitado = accesoHabilitado; }
+    public boolean isSilenciarCorreos() { return silenciarCorreos; }
+    public void setSilenciarCorreos(boolean silenciarCorreos) { this.silenciarCorreos = silenciarCorreos; }
     public List<Cuota> getCuotas() { return cuotas; }
     public List<OfertaEmpleo> getOfertas() { return ofertas; }
 }

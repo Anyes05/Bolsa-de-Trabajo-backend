@@ -42,6 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 LOGGER.warn("JWT valido pero usuario inactivo email={} uri={}", email, request.getRequestURI());
                                 return;
                             }
+                            if (jwtService.sessionVersion(token) != user.getTokenVersion()) {
+                                LOGGER.warn("JWT revocado por logout o cambio de clave email={} uri={}", email, request.getRequestURI());
+                                return;
+                            }
                             String servletPath = request.getServletPath();
                             if (user.isDebeCambiarPassword() && !isAllowedWhilePasswordChangePending(servletPath)) {
                                 LOGGER.warn("JWT con cambio de clave pendiente bloqueado email={} uri={}", email, request.getRequestURI());
@@ -57,6 +61,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private static boolean isAllowedWhilePasswordChangePending(String servletPath) {
-        return "/auth/change-password".equals(servletPath) || "/auth/me".equals(servletPath);
+        return "/auth/change-password".equals(servletPath)
+                || "/auth/me".equals(servletPath)
+                || "/auth/logout".equals(servletPath);
     }
 }

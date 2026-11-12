@@ -21,43 +21,23 @@ public class NotificacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<NotificacionResponseDTO> listForSocio(String emailOrPrincipal) {
-        return listForRole(emailOrPrincipal, Role.SOCIO);
-    }
-
-    @Transactional(readOnly = true)
-    public List<NotificacionResponseDTO> listForPostulante(String emailOrPrincipal) {
-        return listForRole(emailOrPrincipal, Role.POSTULANTE);
+    public List<NotificacionResponseDTO> list(String emailOrPrincipal, Role role) {
+        return listForRole(emailOrPrincipal, role);
     }
 
     @Transactional
-    public NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id) {
-        return markOneRead(emailOrPrincipal, id, Role.SOCIO);
+    public NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id, Role role) {
+        return markOneAsRead(emailOrPrincipal, id, role);
     }
 
     @Transactional
-    public NotificacionResponseDTO markOneReadPostulante(String emailOrPrincipal, Long id) {
-        return markOneRead(emailOrPrincipal, id, Role.POSTULANTE);
+    public void markAllRead(String emailOrPrincipal, Role role) {
+        markAllAsRead(emailOrPrincipal, role);
     }
 
     @Transactional
-    public void markAllRead(String emailOrPrincipal) {
-        markAllRead(emailOrPrincipal, Role.SOCIO);
-    }
-
-    @Transactional
-    public void markAllReadPostulante(String emailOrPrincipal) {
-        markAllRead(emailOrPrincipal, Role.POSTULANTE);
-    }
-
-    @Transactional
-    public void dismissPopups(String emailOrPrincipal) {
-        dismissPopups(emailOrPrincipal, Role.SOCIO);
-    }
-
-    @Transactional
-    public void dismissPopupsPostulante(String emailOrPrincipal) {
-        dismissPopups(emailOrPrincipal, Role.POSTULANTE);
+    public void dismissPopups(String emailOrPrincipal, Role role) {
+        dismissAllPopups(emailOrPrincipal, role);
     }
 
     private List<NotificacionResponseDTO> listForRole(String emailOrPrincipal, Role role) {
@@ -67,7 +47,7 @@ public class NotificacionService {
                 .toList();
     }
 
-    private NotificacionResponseDTO markOneRead(String emailOrPrincipal, Long id, Role role) {
+    private NotificacionResponseDTO markOneAsRead(String emailOrPrincipal, Long id, Role role) {
         User user = requireRole(emailOrPrincipal, role);
         Notificacion notificacion = notificacionRepository.findByIdAndUsuarioId(id, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificación no encontrada"));
@@ -76,12 +56,12 @@ public class NotificacionService {
         return toDto(notificacionRepository.save(notificacion));
     }
 
-    private void markAllRead(String emailOrPrincipal, Role role) {
+    private void markAllAsRead(String emailOrPrincipal, Role role) {
         User user = requireRole(emailOrPrincipal, role);
         notificacionRepository.markAllRead(user.getId());
     }
 
-    private void dismissPopups(String emailOrPrincipal, Role role) {
+    private void dismissAllPopups(String emailOrPrincipal, Role role) {
         User user = requireRole(emailOrPrincipal, role);
         notificacionRepository.dismissPopups(user.getId());
     }

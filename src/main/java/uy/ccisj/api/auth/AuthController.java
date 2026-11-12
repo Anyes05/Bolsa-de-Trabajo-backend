@@ -1,5 +1,6 @@
 package uy.ccisj.api.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -11,26 +12,46 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
     private final AuthService authService;
     private final ProfilePhotoService photos;
+    private final AuthRateLimitService rateLimit;
 
-    public AuthController(AuthService authService, ProfilePhotoService photos) {
+    public AuthController(AuthService authService, ProfilePhotoService photos, AuthRateLimitService rateLimit) {
         this.authService = authService;
         this.photos = photos;
+        this.rateLimit = rateLimit;
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
+        rateLimit.assertLoginAllowed(http, request.identifier());
+        try {
+            AuthResponse response = authService.login(request);
+            rateLimit.clearLogin(http, request.identifier());
+            return response;
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                rateLimit.recordLoginFailure(http, request.identifier());
+            }
+            throw exception;
+        }
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(Authentication authentication) {
+        authService.logout(authentication.getName());
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterApplicantRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterApplicantRequest request, HttpServletRequest http) {
+        rateLimit.assertPublicAllowed(http, "register");
         return authService.registerApplicant(request);
     }
 
@@ -40,8 +61,10 @@ public class AuthController {
     }
 
     @PostMapping("/register/availability")
-    public RegistrationAvailability availability(@Valid @RequestBody RegistrationAvailabilityRequest request) {
-        return authService.registrationAvailability(request.email(), request.identityCard());
+    public RegistrationAvailability availability(@Valid @RequestBody RegistrationAvailabilityRequest request,
+            HttpServletRequest http) {
+        rateLimit.assertPublicAllowed(http, "availability");
+        return new RegistrationAvailability(false, false);
     }
 
     public record RegistrationAvailabilityRequest(

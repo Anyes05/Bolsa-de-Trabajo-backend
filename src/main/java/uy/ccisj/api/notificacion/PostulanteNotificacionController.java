@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uy.ccisj.api.notificacion.dto.NotificacionResponseDTO;
+import uy.ccisj.api.user.Role;
 
 @RestController
 @RequestMapping("/postulante/notificaciones")
@@ -20,21 +21,21 @@ public class PostulanteNotificacionController {
 
     @GetMapping
     public List<NotificacionResponseDTO> list(Authentication authentication) {
-        return notificacionService.listForPostulante(authentication.getName());
+        return notificacionService.list(authentication.getName(), Role.POSTULANTE);
     }
 
     @PostMapping("/{id}/leer")
     public NotificacionResponseDTO markOneRead(Authentication authentication, @PathVariable Long id) {
-        return notificacionService.markOneReadPostulante(authentication.getName(), id);
+        return notificacionService.markOneRead(authentication.getName(), id, Role.POSTULANTE);
     }
 
     @PostMapping("/marcar-leidas")
     public void markAllRead(Authentication authentication) {
-        notificacionService.markAllReadPostulante(authentication.getName());
+        notificacionService.markAllRead(authentication.getName(), Role.POSTULANTE);
     }
 
     @PostMapping("/descartar-popup")
     public void dismissPopup(Authentication authentication) {
-        notificacionService.dismissPopupsPostulante(authentication.getName());
+        notificacionService.dismissPopups(authentication.getName(), Role.POSTULANTE);
     }
 }

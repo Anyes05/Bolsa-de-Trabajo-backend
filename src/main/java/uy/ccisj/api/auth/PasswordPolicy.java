@@ -1,7 +1,6 @@
 package uy.ccisj.api.auth;
 
 import java.security.SecureRandom;
-import java.text.Normalizer;
 
 public final class PasswordPolicy {
 
@@ -19,23 +18,33 @@ public final class PasswordPolicy {
     }
 
     /**
-     * Genera la clave provisional de un socio a partir de su razón social.
-     * Ejemplo: "Distribuidora Fernández Hnos." -> "Distribuidora#4821"
+     * Clave provisional aleatoria (no se deriva de la razón social).
+     * Cumple la política: mayúscula, minúscula, número y símbolo.
      */
-    public static String generateProvisional(String razonSocial) {
-        String letters = Normalizer.normalize(razonSocial == null ? "" : razonSocial, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
-                .replaceAll("[^A-Za-z]", "");
-        if (letters.length() < 4) {
-            letters = (letters + "Socio").substring(0, Math.max(4, letters.length()));
-            if (letters.length() < 4) {
-                letters = "Socio";
-            }
+    public static String generateProvisional(String ignoredRazonSocial) {
+        return generateProvisional();
+    }
+
+    public static String generateProvisional() {
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghijkmnopqrstuvwxyz";
+        String digits = "23456789";
+        StringBuilder builder = new StringBuilder(14);
+        builder.append(upper.charAt(RANDOM.nextInt(upper.length())));
+        builder.append(lower.charAt(RANDOM.nextInt(lower.length())));
+        builder.append(digits.charAt(RANDOM.nextInt(digits.length())));
+        builder.append(SPECIALS.charAt(RANDOM.nextInt(SPECIALS.length())));
+        String all = upper + lower + digits + SPECIALS;
+        while (builder.length() < 14) {
+            builder.append(all.charAt(RANDOM.nextInt(all.length())));
         }
-        String base = letters.substring(0, Math.min(10, letters.length()));
-        base = Character.toUpperCase(base.charAt(0)) + base.substring(1).toLowerCase();
-        char special = SPECIALS.charAt(RANDOM.nextInt(SPECIALS.length()));
-        int digits = 1000 + RANDOM.nextInt(9000);
-        return base + special + digits;
+        char[] chars = builder.toString().toCharArray();
+        for (int index = chars.length - 1; index > 0; index--) {
+            int swap = RANDOM.nextInt(index + 1);
+            char tmp = chars[index];
+            chars[index] = chars[swap];
+            chars[swap] = tmp;
+        }
+        return new String(chars);
     }
 }

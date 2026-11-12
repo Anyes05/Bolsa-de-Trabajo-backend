@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,10 @@ public class JwtService {
     public String generate(User user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(user.getEmail())
                 .claim("role", user.getRole().name())
+                .claim("ver", user.getTokenVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
                 .signWith(key)
@@ -38,6 +41,14 @@ public class JwtService {
 
     public String extractEmail(String token) {
         return claims(token).getSubject();
+    }
+
+    public int sessionVersion(String token) {
+        Object version = claims(token).get("ver");
+        if (version instanceof Number number) {
+            return number.intValue();
+        }
+        return 0;
     }
 
     public String googleRegistrationToken(GoogleTokenVerifier.GoogleIdentity identity) {

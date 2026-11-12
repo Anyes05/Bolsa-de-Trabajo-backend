@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uy.ccisj.api.socio.dto.RubroOptionDTO;
+import uy.ccisj.api.socio.dto.SocioCorreosPreferenciaDTO;
 import uy.ccisj.api.socio.dto.SocioPerfilUpdateDTO;
 import uy.ccisj.api.socio.dto.SocioResponseDTO;
 
@@ -29,6 +30,11 @@ public class SocioPerfilController {
     @PutMapping
     public SocioResponseDTO update(Authentication authentication, @Valid @RequestBody SocioPerfilUpdateDTO dto) {
         return socioService.updateMiPerfil(authentication.getName(), dto);
+    }
+
+    @PutMapping("/correos")
+    public SocioResponseDTO updateCorreos(Authentication authentication, @Valid @RequestBody SocioCorreosPreferenciaDTO dto) {
+        return socioService.updateSilenciarCorreos(authentication.getName(), dto.silenciarCorreos());
     }
 
     @GetMapping("/rubros")

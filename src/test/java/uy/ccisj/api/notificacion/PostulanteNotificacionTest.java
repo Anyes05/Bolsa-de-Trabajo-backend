@@ -32,7 +32,7 @@ class PostulanteNotificacionTest {
     void listsOnlyTheAuthenticatedApplicantsNotifications() {
         var notice = new Notificacion(applicant, "Resultado", "Seleccionado/a", false);
         when(notices.findByUsuarioIdOrderByCreatedAtDesc(99L)).thenReturn(List.of(notice));
-        var result = service.listForPostulante("applicant@example.test");
+        var result = service.list("applicant@example.test", Role.POSTULANTE);
         assertEquals(1, result.size());
         assertEquals("Seleccionado/a", result.get(0).cuerpo());
         assertFalse(result.get(0).leida());

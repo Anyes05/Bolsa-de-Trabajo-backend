@@ -31,5 +31,6 @@ public record SocioResponseDTO(
         String fotoUrl,
         java.util.List<String> camposFicticios,
         boolean importadoMasivo,
-        boolean accesoHabilitado) {
+        boolean accesoHabilitado,
+        boolean silenciarCorreos) {
 }
