@@ -16,7 +16,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -36,7 +35,7 @@ import uy.ccisj.api.socio.SocioRepository;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.UserRepository;
 
-@EnabledIfSystemProperty(named = "offerVisibilityTestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class OfertaCompanyVisibilityDatabaseTest {
     private static final String COMPANY = "Empresa de prueba con nombre reservado";
     private static JdbcTemplate jdbc;
@@ -56,8 +55,7 @@ class OfertaCompanyVisibilityDatabaseTest {
     @BeforeAll
     static void migrateExistingOffer() {
         String schema = "offer_visibility_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        var ds = new DriverManagerDataSource(System.getProperty("offerVisibilityTestJdbcUrl") + "?currentSchema=" + schema + ",public",
-                "offers_test", "offers_test");
+        var ds = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(ds);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(ds).schemas(schema).target("36").load().migrate();

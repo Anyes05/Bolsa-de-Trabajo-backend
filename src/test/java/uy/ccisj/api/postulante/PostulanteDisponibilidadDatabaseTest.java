@@ -27,7 +27,7 @@ import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
 
-@EnabledIfSystemProperty(named = "rf23TestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class PostulanteDisponibilidadDatabaseTest {
     private static DriverManagerDataSource dataSource;
     private static JdbcTemplate jdbc;
@@ -44,9 +44,7 @@ class PostulanteDisponibilidadDatabaseTest {
     @BeforeAll
     static void migrate() {
         String schema = "rf23_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        String url = System.getProperty("rf23TestJdbcUrl");
-        dataSource = new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public",
-                "rf23_test", "rf23_test");
+        dataSource = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(dataSource).schemas(schema).target("32").load().migrate();

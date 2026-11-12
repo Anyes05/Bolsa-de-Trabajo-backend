@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -30,7 +29,7 @@ import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.socio.dto.SocioUpdateDTO;
 import uy.ccisj.api.user.UserRepository;
 
-@EnabledIfSystemProperty(named = "subscriptionTestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class SocioSubscriptionDatabaseTest {
     private static JdbcTemplate jdbc;
     private static LocalContainerEntityManagerFactoryBean factory;
@@ -44,8 +43,7 @@ class SocioSubscriptionDatabaseTest {
     @BeforeAll
     static void migrate() {
         String schema = "subscriptions_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        var ds = new DriverManagerDataSource(System.getProperty("subscriptionTestJdbcUrl") + "?currentSchema=" + schema + ",public",
-                "history_test", "history_test");
+        var ds = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(ds);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(ds).schemas(schema).target("34").load().migrate();
