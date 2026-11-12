@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -28,7 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.user.UserRepository;
 
-@EnabledIfSystemProperty(named = "singleCvTestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class SingleCvDatabaseTest {
     private static LocalContainerEntityManagerFactoryBean factory;
     private static EntityManagerFactory emf;
@@ -46,8 +45,7 @@ class SingleCvDatabaseTest {
     @BeforeAll
     static void migrateLegacyData() {
         String schema = "single_cv_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        var ds = new DriverManagerDataSource(System.getProperty("singleCvTestJdbcUrl") + "?currentSchema=" + schema + ",public",
-                "cv_test", "cv_test");
+        var ds = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(ds);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(ds).schemas(schema).target("33").load().migrate();

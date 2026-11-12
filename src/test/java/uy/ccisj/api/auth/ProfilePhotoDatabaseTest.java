@@ -26,7 +26,7 @@ import uy.ccisj.api.user.Role;
 import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
 
-@EnabledIfSystemProperty(named = "photoTestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class ProfilePhotoDatabaseTest {
     private static JdbcTemplate jdbc;
     private static DriverManagerDataSource dataSource;
@@ -37,9 +37,7 @@ class ProfilePhotoDatabaseTest {
     @BeforeAll
     static void migrateIsolatedDatabase() {
         String schema = "avatar_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        String url = System.getProperty("photoTestJdbcUrl");
-        dataSource = new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public",
-                "photo_test", "photo_test");
+        dataSource = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(dataSource).schemas(schema).target("27").load().migrate();

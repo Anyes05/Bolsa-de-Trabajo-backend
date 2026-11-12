@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -31,7 +30,7 @@ import uy.ccisj.api.socio.dto.CuentaCajaDTO;
 import uy.ccisj.api.socio.dto.RegistrarCobroDTO;
 import uy.ccisj.api.socio.dto.RegistrarReintegroDTO;
 
-@EnabledIfSystemProperty(named = "cajaTestJdbcUrl", matches = ".+")
+@EnabledIfSystemProperty(named = "testJdbcUrl", matches = ".+")
 class CajaInactivePaymentsDatabaseTest {
     private static JdbcTemplate jdbc;
     private static LocalContainerEntityManagerFactoryBean factory;
@@ -43,8 +42,7 @@ class CajaInactivePaymentsDatabaseTest {
     @BeforeAll
     static void migrate() {
         String schema = "cash_" + java.util.UUID.randomUUID().toString().replace("-", "");
-        var ds = new DriverManagerDataSource(System.getProperty("cajaTestJdbcUrl") + "?currentSchema=" + schema + ",public",
-                "cash_test", "cash_test");
+        var ds = uy.ccisj.api.support.DatabaseTestConfig.dataSource(schema);
         jdbc = new JdbcTemplate(ds);
         jdbc.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public");
         Flyway.configure().dataSource(ds).schemas(schema).load().migrate();
