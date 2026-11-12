@@ -2,6 +2,8 @@
 
 Fecha de referencia: 11/11/2026.
 
+Corrección CI posterior al merge (11/11/2026): fixtures de `ProfilePhotoServiceTest` adaptados a detección por firma real, conservando rechazo de contenido falso y límite de 5 MB. Pruebas de notificaciones adaptadas a la API unificada por rol. Validación dirigida: 12 JUnit aprobadas, ninguna omitida; no se deshabilitó validación productiva.
+
 ### Evidencia RF-05 (11/11/2026)
 
 - PostgreSQL 16 aislado en Docker, sin acceso a producción: **36 tests JUnit aprobados**, 0 fallos/errores/omitidos entre `HistorialContableDatabaseTest` (8), `CajaInactivePaymentsDatabaseTest` (7), `SocioSubscriptionDatabaseTest` (6), `SaldoCuentaTest` (4), `MorosidadRulesTest` (4) y `PadronExcelParserTest` (7).

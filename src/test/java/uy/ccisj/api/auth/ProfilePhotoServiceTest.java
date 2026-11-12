@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,9 +28,9 @@ class ProfilePhotoServiceTest {
 
     @Test
     void uploadsAndRemovesOnlyTheAuthenticatedAccount() {
-        byte[] bytes = {1, 2, 3};
+        byte[] bytes = FileSignatures.PNG_HEADER.clone();
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
-        assertEquals("data:image/png;base64,AQID", photos.upload("account@example.test",
+        assertEquals("data:image/png;base64," + Base64.getEncoder().encodeToString(bytes), photos.upload("account@example.test",
                 new MockMultipartFile("file", "photo.png", "image/png", bytes)));
         verify(jdbc).update(contains("WHERE email = ? AND activo = TRUE"), eq(bytes), eq("image/png"),
                 eq("account@example.test"));
@@ -41,6 +43,7 @@ class ProfilePhotoServiceTest {
     void rejectsUnsupportedEmptyAndOversizedUploadsWithoutChangingDatabase() {
         for (MockMultipartFile file : new MockMultipartFile[] {
                 new MockMultipartFile("file", "photo.svg", "image/svg+xml", new byte[] {1}),
+                new MockMultipartFile("file", "fake.png", "image/png", new byte[] {1, 2, 3}),
                 new MockMultipartFile("file", "photo.png", "image/png", new byte[0]),
                 new MockMultipartFile("file", "photo.png", "image/png", new byte[5 * 1024 * 1024 + 1])}) {
             assertEquals(HttpStatus.BAD_REQUEST,
@@ -53,8 +56,13 @@ class ProfilePhotoServiceTest {
     void acceptsExactSizeLimitAndAllSupportedTypes() {
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         for (String type : new String[] {"image/jpeg", "image/png", "image/webp"}) {
+            byte[] header = switch (type) {
+                case "image/jpeg" -> FileSignatures.JPEG_HEADER;
+                case "image/png" -> FileSignatures.PNG_HEADER;
+                default -> new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
+            };
             assertTrue(photos.upload("account@example.test",
-                    new MockMultipartFile("file", "photo", type, new byte[5 * 1024 * 1024]))
+                    new MockMultipartFile("file", "photo", type, Arrays.copyOf(header, 5 * 1024 * 1024)))
                     .startsWith("data:" + type + ";base64,"));
         }
     }
@@ -63,7 +71,7 @@ class ProfilePhotoServiceTest {
     void reportsMissingAccountsAndUnreadableFiles() throws IOException {
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
                 () -> photos.upload("missing@example.test",
-                        new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1}))).getStatusCode());
+                        new MockMultipartFile("file", "photo.png", "image/png", FileSignatures.PNG_HEADER))).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
                 () -> photos.remove("missing@example.test")).getStatusCode());
         MultipartFile unreadable = mock(MultipartFile.class);
