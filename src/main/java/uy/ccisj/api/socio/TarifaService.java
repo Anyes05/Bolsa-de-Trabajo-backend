@@ -53,6 +53,7 @@ public class TarifaService {
 
     @Transactional
     public FacturacionGeneradaDTO generarFacturacion(GenerarFacturacionDTO dto) {
+        cajaService.iniciarRegistro("Facturación del período " + dto.periodo());
         LocalDate periodo = primerDiaDelMes(dto.periodo());
         Tarifa tarifa = tarifaRepository.findByAnio(periodo.getYear())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,

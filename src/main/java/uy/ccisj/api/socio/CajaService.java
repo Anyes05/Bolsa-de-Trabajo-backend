@@ -107,6 +107,7 @@ public class CajaService {
 
     @Transactional
     public CuentaCajaDTO registrarCobro(RegistrarCobroDTO dto) {
+        iniciarRegistro("Cobro recibido");
         Socio socio = findSocio(dto.socioId(), true);
         SaldoCuenta.Resultado resultado = calcularSaldo(listarHistorial(socio.getId()));
         if (calcularEstadoMorosidad(socio, resultado) == EstadoMorosidad.INACTIVO
@@ -123,6 +124,7 @@ public class CajaService {
 
     @Transactional
     public CuentaCajaDTO registrarReintegro(Long socioId, RegistrarReintegroDTO dto) {
+        iniciarRegistro("Registro de reintegro");
         Socio socio = findSocio(socioId, true);
         validarActivo(socio);
         LocalDate fecha = LocalDate.now();
@@ -160,6 +162,7 @@ public class CajaService {
 
     @Transactional
     public void eliminarProgramado(Long socioId, Long reintegroId) {
+        iniciarRegistro("Baja de reintegro programado; conserva el cargo del mes");
         Socio socio = findSocio(socioId, true);
         ReintegroProgramado programado = findProgramado(socioId, reintegroId);
         conservarReintegroDelMes(socio, programado);
@@ -174,6 +177,7 @@ public class CajaService {
 
     @Transactional
     public ReintegroProgramadoDTO actualizarProgramado(Long socioId, Long reintegroId, ReintegroProgramadoDTO dto) {
+        iniciarRegistro("Cambio de reintegro programado; conserva el cargo del mes");
         Socio socio = findSocio(socioId, true);
         ReintegroProgramado programado = findProgramado(socioId, reintegroId);
         if (dto.activo()) {
@@ -196,6 +200,10 @@ public class CajaService {
             generarReintegro(programado, periodo);
         }
         reintegroRepository.flush();
+    }
+
+    public void iniciarRegistro(String motivo) {
+        ContabilidadContext.registrar(entityManager, motivo);
     }
 
     private void conservarReintegroDelMes(Socio socio, ReintegroProgramado programado) {
