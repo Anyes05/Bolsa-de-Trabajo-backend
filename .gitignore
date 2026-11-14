@@ -13,3 +13,10 @@ secrets/
 uploads/
 .idea/
 .vscode/
+
+# Operational reset receipts/backups must never be versioned.
+ops/reset/*.json
+ops/reset/*.dump
+ops/reset/*.backup
+ops/reset/test-output/
+ops/reset/guard-test-output/

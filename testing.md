@@ -344,3 +344,33 @@ La etapa se considera completa cuando:
 - [ ] Se ejecutó la regresión final sobre los commits candidatos a entrega y se archivó el informe de resultados/UAT.
 
 Este plan no modifica funcionalidades ni declara aprobadas las tareas pendientes.
+# Reset operacional opt-in (14/11/2026)
+
+Procedimiento: [ops/reset/README.md](ops/reset/README.md). Validación inicial en
+PostgreSQL 16 Docker local descartable:
+migraciones Flyway V1–V40 reales, reset dry-run/commit, validate/migrate posterior
+y reinvocación de `BootstrapUsers`; ADMIN íntegros (password/foto), rubros e historial
+idénticos, resto vacío y triggers contables restaurados. Guardas: target incorrecto,
+tabla desconocida, trigger deshabilitado y ruta ajena abortan sin limpiar datos.
+
+```powershell
+# Solo entorno descartable: nombre/puerto exigidos por el test; credenciales sintéticas.
+docker run --detach --name ccisj-reset-verification -e POSTGRES_USER=ccisj_test -e POSTGRES_PASSWORD=ccisj_test -e POSTGRES_DB=reset_verification -p 127.0.0.1:55439:5432 postgres:16-alpine
+mvn -q "-Dtest=OperationalResetDatabaseTest" "-DresetDisposableDatabase=true" "-DtestJdbcUrl=jdbc:postgresql://127.0.0.1:55439/reset_verification" test
+.\ops\reset\Test-S3.ps1
+docker rm --force ccisj-reset-verification
+```
+
+El test BD requiere base nueva/vacía; repetir recreando únicamente ese contenedor
+de prueba. No habilitar `resetDisposableDatabase` contra servidores existentes.
+`Test-S3.ps1` usa dobles de AWS y elimina sus archivos sintéticos al terminar.
+No requiere SDK nuevo ni credenciales AWS. La validación no autoriza el reset real.
+
+Resultado adicional: wrapper `Reset-Database.ps1` probado en ese PostgreSQL local
+con `pg_dump -Fc`, restauración real en segunda BD descartable, dry-run y commit;
+recibos JSON válidos y hash de backup presente. `mvn -q test`: sin fallos
+(los tests BD opt-in permanecen omitidos salvo ejecución explícita anterior).
+
+Posteriormente se ejecutó la limpieza autorizada sin respaldo del 14/11/2026;
+resultado operacional en el procedimiento enlazado. La herramienta usa psql,
+no una migración Flyway destructiva. Los manifiestos reales no se versionan.

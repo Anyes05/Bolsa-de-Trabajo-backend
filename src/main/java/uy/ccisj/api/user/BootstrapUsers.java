@@ -12,31 +12,21 @@ public class BootstrapUsers implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final String adminEmail;
     private final String adminPassword;
-    private final String memberEmail;
-    private final String memberBps;
-    private final String memberPassword;
 
     public BootstrapUsers(
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             @Value("${app.bootstrap.admin-email}") String adminEmail,
-            @Value("${app.bootstrap.admin-password}") String adminPassword,
-            @Value("${app.bootstrap.member-email}") String memberEmail,
-            @Value("${app.bootstrap.member-bps}") String memberBps,
-            @Value("${app.bootstrap.member-password}") String memberPassword) {
+            @Value("${app.bootstrap.admin-password}") String adminPassword) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
-        this.memberEmail = memberEmail;
-        this.memberBps = memberBps;
-        this.memberPassword = memberPassword;
     }
 
     @Override
     public void run(String... args) {
         createAdminIfConfigured();
-        createMemberIfConfigured();
     }
 
     private void createAdminIfConfigured() {
@@ -46,10 +36,4 @@ public class BootstrapUsers implements CommandLineRunner {
         }
     }
 
-    private void createMemberIfConfigured() {
-        if (!memberEmail.isBlank() && !memberBps.isBlank() && !memberPassword.isBlank()) {
-            jdbcTemplate.update("INSERT INTO usuarios (email, bps, password_hash, rol) VALUES (?, ?, ?, 'SOCIO') ON CONFLICT DO NOTHING",
-                    memberEmail.trim().toLowerCase(), memberBps.trim(), passwordEncoder.encode(memberPassword));
-        }
-    }
 }

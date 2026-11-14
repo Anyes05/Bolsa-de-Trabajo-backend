@@ -54,9 +54,6 @@ app:
   bootstrap:
     admin-email: ${BOOTSTRAP_ADMIN_EMAIL:}
     admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
-    member-email: ${BOOTSTRAP_MEMBER_EMAIL:}
-    member-bps: ${BOOTSTRAP_MEMBER_BPS:}
-    member-password: ${BOOTSTRAP_MEMBER_PASSWORD:}
   storage:
     bucket: ${S3_BUCKET:}
     region: ${AWS_REGION:us-east-1}
