@@ -26,7 +26,26 @@ se deben conservar los porcentajes y resultados del reporte generado.
 Validación local intentada el 21/11/2026: `mvn --batch-mode clean verify`
 reconoció el plugin, pero falló resolviendo sus dependencias desde Maven Central
 con `Permission denied: getsockopt` bajo el sandbox. No se ejecutaron las pruebas
-ni se generó un reporte; no hay todavía un porcentaje de cobertura medido.
+ni se generó un reporte en esa ejecución local.
+
+Validación en [CI del PR de JaCoCo](https://github.com/Anyes05/Bolsa-de-Trabajo-backend/actions/runs/44939879477)
+el 21/11/2026, commit `7575e79`: **BUILD SUCCESS**, 111 casos reportados,
+110 ejecutados sin fallos ni errores y 1 omitido (`OperationalResetDatabaseTest`,
+reset destructivo deliberadamente opt-in). Migración y despliegue productivos
+no se ejecutaron. Los artifacts de Surefire y JaCoCo se generaron y descargaron.
+
+Base medida sobre las 202 clases analizadas, sin exclusiones manuales:
+
+| Métrica | Cubierto | Total | Porcentaje |
+|---|---:|---:|---:|
+| Líneas | 1888 | 3900 | 48,41% |
+| Ramas | 612 | 1747 | 35,03% |
+| Instrucciones | 9863 | 20342 | 48,49% |
+
+Estos porcentajes son la base real, no el objetivo final ni evidencia de 100%.
+Priorizar nuevas pruebas de reglas de negocio y sus caminos de error usando
+las líneas y ramas no cubiertas del reporte. La ejecución en CI no soluciona
+el bloqueo local de npm/Maven del sandbox.
 
 Corrección CI posterior al merge (11/11/2026): fixtures de `ProfilePhotoServiceTest` adaptados a detección por firma real, conservando rechazo de contenido falso y límite de 5 MB. Pruebas de notificaciones adaptadas a la API unificada por rol. Validación dirigida: 12 JUnit aprobadas, ninguna omitida; no se deshabilitó validación productiva.
 
