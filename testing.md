@@ -56,6 +56,24 @@ El incremento respecto de la base fue de 102 líneas y 46 ramas cubiertas.
 
 Corrección CI posterior al merge (11/11/2026): fixtures de `ProfilePhotoServiceTest` adaptados a detección por firma real, conservando rechazo de contenido falso y límite de 5 MB. Pruebas de notificaciones adaptadas a la API unificada por rol. Validación dirigida: 12 JUnit aprobadas, ninguna omitida; no se deshabilitó validación productiva.
 
+### Medición local ampliada (21/11/2026)
+
+`mvn clean verify` con PostgreSQL 16 descartable en Docker y
+`testJdbcUrl=jdbc:postgresql://127.0.0.1:55440/ccisj_test` aprobado:
+**163 casos reportados**, **162 ejecutados**, sin fallos ni errores.
+Solo se omite el reset destructivo, que conserva su activación separada.
+El contenedor de laboratorio se elimina al finalizar; no se utiliza producción.
+
+JaCoCo sobre las mismas 202 clases: **2337 de 3900 líneas (59,92%)**,
+**815 de 1747 ramas (46,65%)** y
+**12215 de 20342 instrucciones (60,05%)**.
+Las pruebas nuevas de [postulaciones](src/test/java/uy/ccisj/api/oferta/PostulacionServiceTest.java)
+cubren oferta cerrada/vencida, duplicados, perfil propio visible, CV asociado,
+historial sin perfil/CV y ausencia de postulante/oferta.
+`PostulacionService` alcanza **100% de líneas y ramas**; esto no representa
+100% del backend. Parte del comportamiento ya estaba ejecutado por las
+pruebas PostgreSQL, por lo que el incremento global de líneas es pequeño.
+
 ### Evidencia RF-05 (11/11/2026)
 
 - PostgreSQL 16 aislado en Docker, sin acceso a producción: **36 tests JUnit aprobados**, 0 fallos/errores/omitidos entre `HistorialContableDatabaseTest` (8), `CajaInactivePaymentsDatabaseTest` (7), `SocioSubscriptionDatabaseTest` (6), `SaldoCuentaTest` (4), `MorosidadRulesTest` (4) y `PadronExcelParserTest` (7).
