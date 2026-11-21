@@ -47,6 +47,13 @@ Priorizar nuevas pruebas de reglas de negocio y sus caminos de error usando
 las líneas y ramas no cubiertas del reporte. La ejecución en CI no soluciona
 el bloqueo local de npm/Maven del sandbox.
 
+Segunda medición verificada en
+[CI tras ampliar límites de autenticación y aniversarios](https://github.com/Anyes05/Bolsa-de-Trabajo-backend/actions/runs/44941735388)
+el 21/11/2026: **120 casos reportados**, 119 ejecutados sin fallos ni errores
+y el reset destructivo omitido. JaCoCo pasó a **1990 de 3900 líneas (51,03%)**,
+**658 de 1747 ramas (37,66%)** y **10351 de 20342 instrucciones (50,88%)**.
+El incremento respecto de la base fue de 102 líneas y 46 ramas cubiertas.
+
 Corrección CI posterior al merge (11/11/2026): fixtures de `ProfilePhotoServiceTest` adaptados a detección por firma real, conservando rechazo de contenido falso y límite de 5 MB. Pruebas de notificaciones adaptadas a la API unificada por rol. Validación dirigida: 12 JUnit aprobadas, ninguna omitida; no se deshabilitó validación productiva.
 
 ### Evidencia RF-05 (11/11/2026)
