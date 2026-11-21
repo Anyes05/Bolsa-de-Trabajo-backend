@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import uy.ccisj.api.mail.MailNotificationService;
+import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.notificacion.Notificacion;
 import uy.ccisj.api.notificacion.NotificacionRepository;
 import uy.ccisj.api.user.User;
@@ -45,7 +46,7 @@ class AniversarioServiceTest {
         assertEquals(0, result.campana());
         assertEquals(2, result.omitidos());
         verify(notificaciones, never()).save(any());
-        verify(mail, never()).send(anyString(), anyString(), any());
+        verify(mail, never()).send(anyString(), anyString(), any(MailTemplate.Content.class));
     }
 
     @Test
@@ -61,7 +62,10 @@ class AniversarioServiceTest {
         assertEquals(1, result.mailsOk());
         assertEquals(0, result.mailsFail());
         verify(notificaciones).save(any(Notificacion.class));
-        verify(mail).send(org.mockito.ArgumentMatchers.eq("contacto@example.com"), anyString(), any());
+        verify(mail).send(
+                org.mockito.ArgumentMatchers.eq("contacto@example.com"),
+                anyString(),
+                any(MailTemplate.Content.class));
     }
 
     @Test
@@ -79,7 +83,7 @@ class AniversarioServiceTest {
         assertEquals(3, result.campana());
         assertEquals(0, result.mailsOk());
         assertEquals(0, result.mailsFail());
-        verify(mail, never()).send(anyString(), anyString(), any());
+        verify(mail, never()).send(anyString(), anyString(), any(MailTemplate.Content.class));
     }
 
     @Test
@@ -89,7 +93,7 @@ class AniversarioServiceTest {
         when(socios.findActivosWithAnniversaryOn(anyInt(), any())).thenReturn(List.of(socio));
         when(mail.isConfigured()).thenReturn(true);
         org.mockito.Mockito.doThrow(new IllegalStateException("smtp"))
-                .when(mail).send(anyString(), anyString(), any());
+                .when(mail).send(anyString(), anyString(), any(MailTemplate.Content.class));
 
         AniversarioService.AniversarioRunResult result = service.procesarAniversariosDelDia(date);
 
