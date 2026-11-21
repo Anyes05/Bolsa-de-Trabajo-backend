@@ -2,6 +2,58 @@
 
 Fecha de referencia: 11/11/2026.
 
+## Cobertura JaCoCo
+
+JaCoCo se integra al ciclo Maven: instrumenta las pruebas JUnit con `prepare-agent`
+y genera HTML, XML y CSV durante `verify`. No se excluyen servicios, controladores
+ni entidades para aumentar artificialmente el porcentaje.
+
+- Ejecutar unitarias: `mvn --batch-mode clean verify`.
+- Incluir pruebas de PostgreSQL: `mvn --batch-mode clean verify "-DtestJdbcUrl=jdbc:postgresql://127.0.0.1:5432/ccisj_test" "-DtestJdbcUser=ccisj_test" "-DtestJdbcPassword=ccisj_test"`, exclusivamente con una base de laboratorio aislada.
+- Abrir [reporte visual](target/site/jacoco/index.html) luego de una ejecución exitosa.
+  Permite navegar paquetes, clases y líneas con cobertura de instrucciones y ramas.
+- CI conserva `backend-jacoco-coverage` junto al artifact de Surefire; descargar y
+  extraer el directorio completo antes de abrir `index.html`.
+
+Las pruebas de BD omitidas no aportan ejecución al reporte local. La prueba de
+reset destructivo sigue opt-in y no se habilita para perseguir cobertura.
+La cobertura mide código ejecutado, no demuestra por sí sola cumplimiento de RF,
+seguridad ni calidad de las aserciones. Backend y frontend se miden por separado.
+No se impone un umbral de 100% sin medir primero la base real y cubrir reglas
+de negocio. La configuración incorporada no equivale a una ejecución aprobada:
+se deben conservar los porcentajes y resultados del reporte generado.
+
+Validación local intentada el 21/11/2026: `mvn --batch-mode clean verify`
+reconoció el plugin, pero falló resolviendo sus dependencias desde Maven Central
+con `Permission denied: getsockopt` bajo el sandbox. No se ejecutaron las pruebas
+ni se generó un reporte en esa ejecución local.
+
+Validación en [CI del PR de JaCoCo](https://github.com/Anyes05/Bolsa-de-Trabajo-backend/actions/runs/44939879477)
+el 21/11/2026, commit `7575e79`: **BUILD SUCCESS**, 111 casos reportados,
+110 ejecutados sin fallos ni errores y 1 omitido (`OperationalResetDatabaseTest`,
+reset destructivo deliberadamente opt-in). Migración y despliegue productivos
+no se ejecutaron. Los artifacts de Surefire y JaCoCo se generaron y descargaron.
+
+Base medida sobre las 202 clases analizadas, sin exclusiones manuales:
+
+| Métrica | Cubierto | Total | Porcentaje |
+|---|---:|---:|---:|
+| Líneas | 1888 | 3900 | 48,41% |
+| Ramas | 612 | 1747 | 35,03% |
+| Instrucciones | 9863 | 20342 | 48,49% |
+
+Estos porcentajes son la base real, no el objetivo final ni evidencia de 100%.
+Priorizar nuevas pruebas de reglas de negocio y sus caminos de error usando
+las líneas y ramas no cubiertas del reporte. La ejecución en CI no soluciona
+el bloqueo local de npm/Maven del sandbox.
+
+Segunda medición verificada en
+[CI tras ampliar límites de autenticación y aniversarios](https://github.com/Anyes05/Bolsa-de-Trabajo-backend/actions/runs/44941735388)
+el 21/11/2026: **120 casos reportados**, 119 ejecutados sin fallos ni errores
+y el reset destructivo omitido. JaCoCo pasó a **1990 de 3900 líneas (51,03%)**,
+**658 de 1747 ramas (37,66%)** y **10351 de 20342 instrucciones (50,88%)**.
+El incremento respecto de la base fue de 102 líneas y 46 ramas cubiertas.
+
 Corrección CI posterior al merge (11/11/2026): fixtures de `ProfilePhotoServiceTest` adaptados a detección por firma real, conservando rechazo de contenido falso y límite de 5 MB. Pruebas de notificaciones adaptadas a la API unificada por rol. Validación dirigida: 12 JUnit aprobadas, ninguna omitida; no se deshabilitó validación productiva.
 
 ### Evidencia RF-05 (11/11/2026)
