@@ -78,21 +78,26 @@ public class SocioImportService {
         List<PreparedRow> prepared = prepare(file);
         int creados = 0;
         List<PreviewFila> omitidas = new ArrayList<>();
+        // El resumen refleja el resultado real: una fila que falla al guardar cuenta como error.
+        List<PreviewFila> todas = new ArrayList<>();
         RubroEmpleo sinClasificar = requireRubroSinClasificar();
-        FictionalCounters counters = new FictionalCounters();
         for (PreparedRow row : prepared) {
             if (!esImportable(row.estado)) {
-                omitidas.add(row.toPreview());
+                PreviewFila fila = row.toPreview();
+                omitidas.add(fila);
+                todas.add(fila);
                 continue;
             }
             try {
                 persist(row, sinClasificar);
                 creados++;
+                todas.add(row.toPreview());
             } catch (RuntimeException exception) {
-                omitidas.add(row.withError("No se pudo guardar: " + exception.getMessage()).toPreview());
+                PreviewFila fila = row.withError("No se pudo guardar: " + exception.getMessage()).toPreview();
+                omitidas.add(fila);
+                todas.add(fila);
             }
         }
-        List<PreviewFila> todas = prepared.stream().map(PreparedRow::toPreview).toList();
         return new ImportResponse(resumen(todas, creados), omitidas);
     }
 

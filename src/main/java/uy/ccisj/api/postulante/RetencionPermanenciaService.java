@@ -194,7 +194,7 @@ public class RetencionPermanenciaService {
 
     private String buildBody(String nombre, OffsetDateTime deadline, String token) {
         String quien = nombre == null || nombre.isBlank() ? "postulante" : nombre.trim();
-        String hasta = deadline == null ? "pronto" : deadline.toLocalDate().toString();
+        String hasta = deadline.toLocalDate().toString();
         String link = webUrl + "/permanencia?token=" + token;
         return """
                 Hola %s,
@@ -214,9 +214,7 @@ public class RetencionPermanenciaService {
     private uy.ccisj.api.mail.MailTemplate.Content buildEmail(
             String nombre, OffsetDateTime deadline, String token) {
         String quien = nombre == null || nombre.isBlank() ? "postulante" : nombre.trim();
-        String hasta = deadline == null
-                ? "pronto"
-                : deadline.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String hasta = deadline.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String link = webUrl + "/permanencia?token=" + token;
         return uy.ccisj.api.mail.MailTemplate.build(
                 "Confirmá tu permanencia",

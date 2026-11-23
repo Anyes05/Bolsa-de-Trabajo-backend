@@ -1,5 +1,6 @@
 package uy.ccisj.api.postulante;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -33,14 +34,20 @@ public class PostulanteDatosPersonalesController {
 
     @PutMapping
     public DatosPersonalesResponse update(Authentication authentication, @RequestBody DatosPersonalesRequest request) {
-        if (request.nombreCompleto() == null || request.nombreCompleto().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre completo es obligatorio");
+        String nombre = required(request.nombreCompleto(), "El nombre completo es obligatorio");
+        // En la tabla postulantes estas columnas son NOT NULL: vacías se rechazan con 400 y no con 500.
+        String cedula = required(request.cedulaIdentidad(), "La cédula de identidad es obligatoria");
+        String telefono = required(request.telefono(), "El teléfono es obligatorio");
+        String zona = required(request.zonaResidencia(), "La zona de residencia es obligatoria");
+        int updated;
+        try {
+            updated = jdbcTemplate.update("""
+                    UPDATE postulantes p SET nombre_completo = ?, cedula_identidad = ?, telefono = ?, zona_residencia = ?
+                    FROM usuarios u WHERE p.usuario_id = u.id AND u.email = ?
+                    """, nombre, cedula, telefono, zona, authentication.getName());
+        } catch (DuplicateKeyException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La cédula ya está registrada por otro postulante");
         }
-        int updated = jdbcTemplate.update("""
-                UPDATE postulantes p SET nombre_completo = ?, cedula_identidad = ?, telefono = ?, zona_residencia = ?
-                FROM usuarios u WHERE p.usuario_id = u.id AND u.email = ?
-                """, request.nombreCompleto().trim(), blankToNull(request.cedulaIdentidad()),
-                blankToNull(request.telefono()), blankToNull(request.zonaResidencia()), authentication.getName());
         if (updated == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Postulante no encontrado");
         return find(authentication.getName());
     }
@@ -67,7 +74,10 @@ public class PostulanteDatosPersonalesController {
                         rs.getString("google_photo_url"))) : null, email);
     }
 
-    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private String required(String value, String message) {
+        if (value == null || value.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        return value.trim();
+    }
 
     public record DatosPersonalesRequest(String nombreCompleto, String cedulaIdentidad, String telefono, String zonaResidencia) {}
     public record DatosPersonalesResponse(String nombreCompleto, String cedulaIdentidad, String telefono,

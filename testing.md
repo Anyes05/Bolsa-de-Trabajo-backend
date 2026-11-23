@@ -444,3 +444,28 @@ recibos JSON válidos y hash de backup presente. `mvn -q test`: sin fallos
 Posteriormente se ejecutó la limpieza autorizada sin respaldo del 14/11/2026;
 resultado operacional en el procedimiento enlazado. La herramienta usa psql,
 no una migración Flyway destructiva. Los manifiestos reales no se versionan.
+
+## Cobertura 100% de líneas — 23/11/2026
+
+Medición local con `mvn --batch-mode clean verify` y PostgreSQL 16 de prueba en Docker
+(`-DtestJdbcUrl=jdbc:postgresql://127.0.0.1:55432/ccisj_test`), sin exclusiones de JaCoCo:
+
+| Métrica | Cubierto | Total | Porcentaje |
+|---|---:|---:|---:|
+| Líneas | 3906 | 3906 | 100% |
+| Ramas | 1724 | 1734 | 99,42% |
+
+**529 tests**, 0 fallos, 1 omitido (reset destructivo opt-in). Partida del mismo día: 64% de líneas.
+
+- Local en Windows: el puerto 5432 suele estar ocupado por un PostgreSQL instalado, por eso
+  el contenedor usa 55432. Además se necesita `JAVA_TOOL_OPTIONS=-Duser.timezone=America/Montevideo`:
+  la JVM envía `America/Buenos_Aires` y PostgreSQL 16 rechaza esa zona.
+- Las 10 ramas restantes son condiciones defensivas que no se pueden alcanzar
+  (ej. `user != null` cuando el llamador ya lo garantiza).
+- Cambios de producción hechos junto con los tests:
+  - Se quitó código muerto: `return null` y `case` inalcanzables, y `FictionalCounters` sin uso.
+  - `PUT /postulante/datos-personales`: los campos obligatorios vacíos ahora dan 400 en lugar
+    de 500 (NOT NULL), y una cédula duplicada da 409.
+  - `CvService`: devuelve 404 en lugar de NPE si el perfil desaparece durante la subida, y el
+    estado civil se detecta aunque tenga tildes.
+  - Importación de socios: una fila que falla al guardar cuenta como error en el resumen.

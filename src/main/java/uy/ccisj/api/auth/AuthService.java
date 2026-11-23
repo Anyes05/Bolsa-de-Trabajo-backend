@@ -246,12 +246,10 @@ public class AuthService {
         if (user.getRole() == Role.ADMIN) {
             return "Administrador";
         }
-        if (user.getRole() == Role.SOCIO) {
-            return socioRepository.findByUsuarioId(user.getId())
-                .map(Socio::getRazonSocial)
-                .orElse(null);
-        }
-        return null;
+        // Role solo tiene ADMIN, SOCIO y POSTULANTE: lo que queda es SOCIO.
+        return socioRepository.findByUsuarioId(user.getId())
+            .map(Socio::getRazonSocial)
+            .orElse(null);
     }
 
     private Boolean socioEsDirectivo(User user) {

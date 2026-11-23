@@ -26,8 +26,7 @@ public class FlexibleLocalDateDeserializer extends JsonDeserializer<LocalDate> {
         try {
             return LocalDate.parse(value, DAY_MONTH_YEAR);
         } catch (DateTimeParseException ignored) {
-            context.reportInputMismatch(LocalDate.class, "Fecha inválida: %s", value);
-            return null;
+            throw context.weirdStringException(value, LocalDate.class, "Fecha inválida: " + value);
         }
     }
 }

@@ -170,12 +170,10 @@ public class ComunicadoService {
     }
 
     private List<Socio> resolveAudience(DestinatarioComunicado destinatario) {
-        return switch (destinatario) {
-            case SOLO_DIRECTIVOS -> socioRepository.findDirectivosActivosWithUsuario();
-            case SOCIOS, TODOS -> socioRepository.findActivosWithUsuario();
-            case POSTULANTES -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La audiencia de postulantes no está habilitada en este flujo");
-        };
+        // normalizeAudience ya dejó solo SOCIOS o SOLO_DIRECTIVOS.
+        return destinatario == DestinatarioComunicado.SOLO_DIRECTIVOS
+                ? socioRepository.findDirectivosActivosWithUsuario()
+                : socioRepository.findActivosWithUsuario();
     }
 
     private DestinatarioComunicado normalizeAudience(DestinatarioComunicado destinatario) {

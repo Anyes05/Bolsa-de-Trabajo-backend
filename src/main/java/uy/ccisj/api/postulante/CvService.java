@@ -233,12 +233,10 @@ public class CvService {
         if (matches == null || matches == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado");
         }
-        return jdbcTemplate.query(
-            "SELECT id FROM perfiles_laborales WHERE id = ?",
-            rs -> rs.next() ? postulanteRepository.findById(postulanteId)
-                .flatMap(postulante -> postulante.getPerfiles().stream().filter(perfil -> perfil.getId().equals(resolvedId)).findFirst())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado")) : null,
-            resolvedId);
+        // Si el perfil se borró entre el COUNT y esta lectura, responde 404 en lugar de devolver null.
+        return postulanteRepository.findById(postulanteId)
+            .flatMap(postulante -> postulante.getPerfiles().stream().filter(perfil -> perfil.getId().equals(resolvedId)).findFirst())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil profesional no encontrado"));
         }
 
     private void validateFile(MultipartFile file) {
@@ -367,7 +365,11 @@ public class CvService {
     }
 
     private String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT);
+        if (value == null) return "";
+        // Quita tildes para que "Unión libre" o "Viúdo" se detecten igual que sin acento.
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
     }
 
     private Set<String> parseAllowedMime(String raw) {
