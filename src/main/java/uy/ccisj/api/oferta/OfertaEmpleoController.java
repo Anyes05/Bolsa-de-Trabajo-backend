@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 import uy.ccisj.api.domain.EstadoOferta;
 import uy.ccisj.api.socio.SocioRepository;
 
@@ -33,11 +35,34 @@ public class OfertaEmpleoController {
         this.rubroRepository = rubroRepository;
     }
 
+    /**
+     * Ofertas paginadas con búsqueda (título, socio, rubro) y estado en servidor.
+     * El alcance no cambia: el admin ve todas y el socio solo las propias (resuelto en el servicio).
+     */
     @GetMapping
+    public PageResponse<OfertaResponse> page(Authentication authentication,
+                                             @RequestParam(required = false) String q,
+                                             @RequestParam(required = false) EstadoOferta estado,
+                                             @RequestParam(required = false) Integer page,
+                                             @RequestParam(required = false) Integer size) {
+        ListQuery query = ListQuery.of(q, page, size);
+        return query.filterAndPaginate(list(authentication), oferta ->
+                (estado == null || oferta.estado() == estado)
+                        && query.matches(oferta.titulo(), oferta.socioNombre(), oferta.rubro()));
+    }
+
+    /** Todas las ofertas visibles para el usuario (uso interno y tests). */
     public List<OfertaResponse> list(Authentication authentication) {
         boolean admin = isAdmin(authentication);
         if (!admin && !isSocio(authentication)) throw forbidden();
         return ofertaService.list(authentication.getName(), admin);
+    }
+
+    @GetMapping("/{id:\\d+}")
+    public OfertaResponse get(Authentication authentication, @PathVariable Long id) {
+        boolean admin = isAdmin(authentication);
+        if (!admin && !isSocio(authentication)) throw forbidden();
+        return ofertaService.get(authentication.getName(), admin, id);
     }
 
     @GetMapping("/socios-activos")

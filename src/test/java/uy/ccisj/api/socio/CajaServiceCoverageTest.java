@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.catalogo.RubroEmpleo;
+import uy.ccisj.api.common.ListQuery;
 import uy.ccisj.api.domain.EstadoCuota;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.domain.MetodoPago;
@@ -120,7 +121,25 @@ class CajaServiceCoverageTest {
         assertEquals(1, resumen.pendiente());
         assertEquals(1, resumen.inactivos());
 
-        CuentaCajaDTO cuenta1 = resumen.cuentas().get(0);
+        var cuentas = caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.TODOS).content();
+        assertEquals(3, cuentas.size());
+        // Filtros en servidor: coinciden con las métricas del resumen.
+        assertEquals(resumen.alDia(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.AL_DIA).totalElements());
+        assertEquals(resumen.pendiente(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.DEUDA).totalElements());
+        assertEquals(resumen.inactivos(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.INACTIVO).totalElements());
+        assertEquals(1, caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.MOROSO).totalElements());
+        // Paginación: página de 1 elemento informa el total.
+        var primera = caja.listarCuentas(ListQuery.of(null, 0, 1), null);
+        assertEquals(1, primera.content().size());
+        assertEquals(3, primera.totalElements());
+        assertEquals(3, primera.totalPages());
+        // Búsqueda por rubro sin distinguir mayúsculas ni tildes.
+        assertEquals(1, caja.listarCuentas(ListQuery.of("COMERCIO", 0, 100), CajaService.FiltroCaja.TODOS).totalElements());
+        // Exportación: solo los estados pedidos; sin estados no exporta nada.
+        assertEquals(1, caja.cuentasParaExportar(ListQuery.of(null, null, null), java.util.Set.of(EstadoMorosidad.MOROSO)).size());
+        assertTrue(caja.cuentasParaExportar(ListQuery.of(null, null, null), java.util.Set.of()).isEmpty());
+
+        CuentaCajaDTO cuenta1 = cuentas.get(0);
         assertEquals("BPS1", cuenta1.bps());
         assertEquals("111", cuenta1.cedula());
         assertEquals("Comercio", cuenta1.nombreRubro());
@@ -130,7 +149,7 @@ class CajaServiceCoverageTest {
         assertEquals(EstadoCuota.PAGADO, cuenta1.estadoCuota());
         assertEquals(mesActual, cuenta1.periodo());
 
-        CuentaCajaDTO cuenta2 = resumen.cuentas().get(1);
+        CuentaCajaDTO cuenta2 = cuentas.get(1);
         assertEquals("222", cuenta2.bps(), "BPS en blanco usa la cédula como identificador");
         assertEquals(EstadoMorosidad.MOROSO, cuenta2.estadoMorosidad());
         assertEquals(0, new BigDecimal("15").compareTo(cuenta2.montoTimbre()));
@@ -138,7 +157,7 @@ class CajaServiceCoverageTest {
         assertEquals(0, new BigDecimal("100").compareTo(cuenta2.deudaVencida()));
         assertNull(cuenta2.nombreRubro());
 
-        CuentaCajaDTO cuenta3 = resumen.cuentas().get(2);
+        CuentaCajaDTO cuenta3 = cuentas.get(2);
         assertNull(cuenta3.bps());
         assertNull(cuenta3.cedula());
         assertNull(cuenta3.cuotaId());
@@ -159,7 +178,7 @@ class CajaServiceCoverageTest {
         when(socios.findAllByOrderByRazonSocialAsc()).thenReturn(List.of(socio));
         when(cuotas.findFirstBySocioIdOrderByPeriodoDesc(4L)).thenReturn(Optional.of(cuota));
 
-        CuentaCajaDTO cuenta = caja.getResumen().cuentas().getFirst();
+        CuentaCajaDTO cuenta = caja.listarCuentas(ListQuery.of(null, null, null), null).content().getFirst();
 
         assertEquals("444", cuenta.bps(), "sin BPS se informa la cédula");
         assertEquals(0, cuenta.montoTimbre().signum());

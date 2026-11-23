@@ -24,6 +24,7 @@ import org.springframework.orm.jpa.SharedEntityManagerCreator;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.common.ListQuery;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.domain.MetodoPago;
 import uy.ccisj.api.socio.dto.CuentaCajaDTO;
@@ -113,11 +114,18 @@ class CajaInactivePaymentsDatabaseTest {
     void includesOutstandingNonOverdueDebtInSummaryEvenWhenInactive() {
         addCuota();
         var summary = inTx(() -> caja.getResumen());
-        var account = summary.cuentas().stream().filter(c -> c.socioId().equals(socioId)).findFirst().orElseThrow();
+        var conDeuda = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.DEUDA));
+        var account = conDeuda.content().stream().filter(c -> c.socioId().equals(socioId)).findFirst().orElseThrow();
         assertEquals(EstadoMorosidad.INACTIVO, account.estadoMorosidad());
         assertEquals(0, account.deudaVencida().signum());
-        assertEquals(summary.cuentas().stream().filter(c -> c.saldo().signum() > 0).count(), summary.pendiente());
+        var todasConDeuda = inTx(() -> caja.listarCuentas(ListQuery.of(null, 0, 1), CajaService.FiltroCaja.DEUDA));
+        assertEquals(todasConDeuda.totalElements(), summary.pendiente());
         assertTrue(summary.pendiente() > 0);
+        var alDia = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.AL_DIA));
+        assertTrue(alDia.content().stream().noneMatch(c -> c.socioId().equals(socioId)));
+        var export = inTx(() -> caja.cuentasParaExportar(ListQuery.of("cobro INACTIVO", null, null),
+                java.util.Set.of(EstadoMorosidad.INACTIVO)));
+        assertTrue(export.stream().anyMatch(c -> c.socioId().equals(socioId)));
         assertEquals(0, pay("100").saldo().signum());
     }
 

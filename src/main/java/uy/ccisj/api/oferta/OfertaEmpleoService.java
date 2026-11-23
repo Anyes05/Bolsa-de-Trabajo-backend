@@ -43,6 +43,12 @@ public class OfertaEmpleoService {
         return offers.stream().map(this::response).toList();
     }
 
+    /** Una oferta por id con el mismo alcance que el listado: un socio solo ve las propias (404 si no). */
+    @Transactional(readOnly = true)
+    public OfertaResponse get(String email, boolean admin, Long id) {
+        return response(findForRole(email, admin, id));
+    }
+
     @Transactional
     public List<OfertaResponse> listForApplicants(Long rubroId) {
         expirePastOffers();

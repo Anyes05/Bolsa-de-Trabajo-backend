@@ -1,11 +1,9 @@
 package uy.ccisj.api.socio.dto;
 
-import java.util.List;
-
+/** Métricas de Caja. Las cuentas se obtienen paginadas en GET /admin/caja/cuentas. */
 public record CajaResumenDTO(
         long totalSocios,
         long alDia,
         long pendiente,
-        long inactivos,
-        List<CuentaCajaDTO> cuentas) {
+        long inactivos) {
 }

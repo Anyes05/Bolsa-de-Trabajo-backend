@@ -54,7 +54,9 @@ class CatalogoCoverageTest {
         when(service.update(1L, "Comercio")).thenReturn(comercio);
         when(service.setActivo(1L, false)).thenReturn(inactivo);
 
-        assertThat(controller.list(false)).containsExactly(ventas);
+        var pagina = controller.list(false, null, null, null);
+        assertThat(pagina.pagina().content()).containsExactly(ventas);
+        assertThat(pagina.activos()).isEqualTo(ventas.activo() ? 1 : 0);
         assertThat(controller.create(new RubroAdminController.RubroNombreRequest("Ventas"))).isEqualTo(ventas);
         assertThat(controller.update(1L, new RubroAdminController.RubroNombreRequest("Comercio"))).isEqualTo(comercio);
         var activoRequest = new RubroAdminController.RubroActivoRequest(false);

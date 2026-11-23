@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 
 @RestController
 @RequestMapping("/postulante/ofertas")
@@ -25,9 +27,18 @@ public class PostulanteOfertaController {
         this.ofertaService = ofertaService;
     }
 
+    /** Ofertas activas paginadas; el filtro por rubro ya se resolvía en servidor. */
     @GetMapping
-    public List<OfertaResponse> list(Authentication authentication,
-            @RequestParam(required = false) Long rubroId) {
+    public PageResponse<OfertaResponse> page(Authentication authentication,
+            @RequestParam(required = false) Long rubroId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        ListQuery query = ListQuery.of(null, page, size);
+        return query.paginate(list(authentication, rubroId));
+    }
+
+    /** Todas las ofertas activas (uso interno y tests). */
+    public List<OfertaResponse> list(Authentication authentication, Long rubroId) {
         requireApplicant(authentication);
         return postulacionService.listOffers(rubroId);
     }

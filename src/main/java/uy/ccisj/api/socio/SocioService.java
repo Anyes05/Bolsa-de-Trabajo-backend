@@ -14,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.catalogo.LocalidadesSanJose;
 import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.auth.PasswordPolicy;
 import uy.ccisj.api.auth.ProfilePhotoService;
@@ -72,6 +74,22 @@ public class SocioService {
         return socioRepository.findAllByOrderByRazonSocialAsc().stream().map(this::toResponse).toList();
     }
 
+    /**
+     * Listado de socios para administración con búsqueda, filtro de datos incompletos y paginación en servidor.
+     * Incompleto = tiene campos ficticios de la importación o el acceso aún no fue habilitado.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<SocioResponseDTO> pageSocios(ListQuery query, boolean soloIncompletos) {
+        return query.paginate(socioRepository.findAllByOrderByRazonSocialAsc().stream()
+                .map(this::toResponse)
+                .filter(socio -> !soloIncompletos
+                        || (socio.camposFicticios() != null && !socio.camposFicticios().isEmpty())
+                        || !socio.accesoHabilitado())
+                .filter(socio -> query.matches(socio.razonSocial(), socio.cedula(), socio.bps(), socio.rut(),
+                        socio.nombreRubro(), socio.emailUsuario(), socio.emailContacto()))
+                .toList());
+    }
+
     @Transactional(readOnly = true)
     public SocioResponseDTO getSocioById(Long id) {
         return toResponse(findSocio(id));
@@ -93,6 +111,15 @@ public class SocioService {
         return socioRepository.findAllByOrderByRazonSocialAsc().stream()
                 .map(this::toDirectorio)
                 .toList();
+    }
+
+    /** Directorio paginado; el permiso de directivo se valida igual que en {@link #listDirectorio}. */
+    @Transactional(readOnly = true)
+    public PageResponse<DirectorioSocioDTO> pageDirectorio(String principalEmail, ListQuery query, EstadoMorosidad estado) {
+        return query.paginate(listDirectorio(principalEmail).stream()
+                .filter(socio -> estado == null || socio.estadoMorosidad() == estado)
+                .filter(socio -> query.matches(socio.razonSocial(), socio.email(), socio.rubro(), socio.telefono()))
+                .toList());
     }
 
     @Transactional(readOnly = true)

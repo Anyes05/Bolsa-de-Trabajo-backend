@@ -55,6 +55,39 @@ class OfertaEmpleoControllerCoverageTest {
     }
 
     @Test
+    void paginaFiltraPorTextoYEstadoEnServidorRespetandoElAlcanceDelRol() {
+        OfertaResponse vendedor = oferta(1L, "Vendedor", "Tienda Centro", "Ventas", EstadoOferta.ACTIVA);
+        OfertaResponse cocinero = oferta(2L, "Cocinero", "Parrilla Sur", "Gastronomía", EstadoOferta.PAUSADA);
+        OfertaResponse repartidor = oferta(3L, "Repartidor", "Tienda Centro", "Logística", EstadoOferta.ACTIVA);
+        when(service.list("socio@x.test", false)).thenReturn(List.of(vendedor, cocinero, repartidor));
+        Authentication socio = auth("socio@x.test", "ROLE_SOCIO");
+
+        assertThat(controller.page(socio, "tienda", null, 0, 20).content()).containsExactly(vendedor, repartidor);
+        assertThat(controller.page(socio, null, EstadoOferta.PAUSADA, 0, 20).content()).containsExactly(cocinero);
+        assertThat(controller.page(socio, "gastronomia", null, 0, 20).content()).containsExactly(cocinero);
+        var pagina = controller.page(socio, null, null, 1, 2);
+        assertThat(pagina.content()).containsExactly(repartidor);
+        assertThat(pagina.totalElements()).isEqualTo(3);
+        assertThat(pagina.totalPages()).isEqualTo(2);
+        verify(service, org.mockito.Mockito.times(4)).list("socio@x.test", false);
+
+        assertForbidden(() -> controller.page(auth("p@x.test", "ROLE_POSTULANTE"), null, null, null, null));
+    }
+
+    @Test
+    void obtieneUnaOfertaPorIdConElAlcanceDelRol() {
+        OfertaResponse oferta = oferta(7L, "Vendedor", "Tienda", "Ventas", EstadoOferta.ACTIVA);
+        when(service.get("socio@x.test", false, 7L)).thenReturn(oferta);
+        assertThat(controller.get(auth("socio@x.test", "ROLE_SOCIO"), 7L)).isSameAs(oferta);
+        assertForbidden(() -> controller.get(auth("p@x.test", "ROLE_POSTULANTE"), 7L));
+    }
+
+    private static OfertaResponse oferta(Long id, String titulo, String socio, String rubro, EstadoOferta estado) {
+        return new OfertaResponse(id, 1L, socio, 1L, rubro, titulo, titulo, "", "", "", "", null, null, 1,
+                null, null, estado, 0, true);
+    }
+
+    @Test
     void sociosActivosExcluyeSociosSinUsuarioOInactivos() {
         Socio sinUsuario = mock(Socio.class);
         Socio inactivo = socio(2L, "Inactiva", false);

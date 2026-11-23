@@ -224,6 +224,48 @@ class SocioServiceCoverageTest {
         assertEquals(EstadoMorosidad.INACTIVO, directorio.get(2).estadoMorosidad());
         assertNull(directorio.get(3).email());
         assertEquals(EstadoMorosidad.MOROSO, directorio.get(3).estadoMorosidad());
+
+        // Búsqueda, estado y paginación en servidor.
+        var morosos = service.pageDirectorio("directivo@empresa.test",
+                uy.ccisj.api.common.ListQuery.of(null, 0, 20), EstadoMorosidad.MOROSO);
+        assertEquals(1, morosos.totalElements());
+        assertEquals("C sin usuario", morosos.content().getFirst().razonSocial());
+        var porEmail = service.pageDirectorio("directivo@empresa.test",
+                uy.ccisj.api.common.ListQuery.of("CONTACTO@A", 0, 20), null);
+        assertEquals(1, porEmail.totalElements());
+        var pagina = service.pageDirectorio("directivo@empresa.test", uy.ccisj.api.common.ListQuery.of(null, 1, 3), null);
+        assertEquals(1, pagina.content().size());
+        assertEquals(4, pagina.totalElements());
+        assertEquals(2, pagina.totalPages());
+    }
+
+    @Test
+    void directorioPaginadoTambienExigeDirectivo() {
+        socioLogueado("estandar@empresa.test");
+        assertEquals(HttpStatus.FORBIDDEN, status(() -> service.pageDirectorio("estandar@empresa.test",
+                uy.ccisj.api.common.ListQuery.of(null, 0, 20), null)));
+    }
+
+    @Test
+    void listadoDeSociosFiltraIncompletosYBuscaEnServidor() {
+        Socio completo = new Socio(user(30L, "completa@empresa.test", Role.SOCIO), "Completa SA");
+        completo.setAccesoHabilitado(true);
+        completo.setRubro(comercio);
+        Socio sinAcceso = new Socio(user(31L, "pendiente@empresa.test", Role.SOCIO), "Pendiente SRL");
+        sinAcceso.setAccesoHabilitado(false);
+        when(socios.findAllByOrderByRazonSocialAsc()).thenReturn(List.of(completo, sinAcceso));
+
+        var todos = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 0, 20), false);
+        assertEquals(2, todos.totalElements());
+        var incompletos = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 0, 20), true);
+        assertEquals(List.of("Pendiente SRL"), incompletos.content().stream().map(SocioResponseDTO::razonSocial).toList());
+        var porRubro = service.pageSocios(uy.ccisj.api.common.ListQuery.of("comercio", 0, 20), false);
+        assertEquals(List.of("Completa SA"), porRubro.content().stream().map(SocioResponseDTO::razonSocial).toList());
+        var porEmail = service.pageSocios(uy.ccisj.api.common.ListQuery.of("PENDIENTE@", 0, 20), false);
+        assertEquals(1, porEmail.totalElements());
+        var pagina = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 1, 1), false);
+        assertEquals(List.of("Pendiente SRL"), pagina.content().stream().map(SocioResponseDTO::razonSocial).toList());
+        assertEquals(2, pagina.totalPages());
     }
 
     @Test

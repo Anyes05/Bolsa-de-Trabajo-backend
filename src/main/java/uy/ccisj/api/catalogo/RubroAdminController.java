@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 
 @RestController
 @RequestMapping("/admin/rubros")
@@ -24,10 +26,19 @@ public class RubroAdminController {
         this.rubroAdminService = rubroAdminService;
     }
 
+    /** Catálogo paginado con búsqueda por nombre en servidor; {@code activos} cuenta sobre todo el catálogo. */
     @GetMapping
-    public List<RubroAdminDTO> list(@RequestParam(defaultValue = "true") boolean incluirInactivos) {
-        return rubroAdminService.list(incluirInactivos);
+    public RubroPage list(@RequestParam(defaultValue = "true") boolean incluirInactivos,
+                          @RequestParam(required = false) String q,
+                          @RequestParam(required = false) Integer page,
+                          @RequestParam(required = false) Integer size) {
+        ListQuery query = ListQuery.of(q, page, size);
+        List<RubroAdminDTO> rubros = rubroAdminService.list(incluirInactivos);
+        long activos = rubros.stream().filter(RubroAdminDTO::activo).count();
+        return new RubroPage(query.filterAndPaginate(rubros, rubro -> query.matches(rubro.nombreRubro())), activos);
     }
+
+    public record RubroPage(PageResponse<RubroAdminDTO> pagina, long activos) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
