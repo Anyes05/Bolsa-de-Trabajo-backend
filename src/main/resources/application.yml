@@ -70,3 +70,8 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    # El correo (Gmail SMTP) es best-effort: si falla, la app sigue funcionando.
+    # No debe marcar el servicio como caído (el deploy verifica este endpoint).
+    mail:
+      enabled: false

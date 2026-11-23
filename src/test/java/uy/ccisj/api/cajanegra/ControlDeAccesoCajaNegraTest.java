@@ -62,6 +62,7 @@ class ControlDeAccesoCajaNegraTest extends ApiCajaNegraBase {
     @Test
     @DisplayName("CN-API-10 Rutas públicas accesibles sin sesión y respuesta de error sin detalles internos")
     void rutasPublicas() {
+        // Sin SMTP disponible el servicio igual figura sano: el correo no forma parte del health.
         assertThat(enviar("GET", "/actuator/health", null, null).status()).isEqualTo(200);
         assertThat(enviar("GET", "/sectors", null, null).status()).isEqualTo(200);
 

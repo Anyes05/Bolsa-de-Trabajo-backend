@@ -76,8 +76,6 @@ abstract class ApiCajaNegraBase {
         registry.add("app.storage.bucket", () -> "bucket-de-prueba");
         // Sin SMTP: los correos se omiten (comportamiento documentado de la app sin Gmail configurado).
         registry.add("spring.mail.username", () -> "");
-        // El health real incluye el SMTP de Gmail; en pruebas no hay servidor de correo.
-        registry.add("management.health.mail.enabled", () -> "false");
     }
 
     @BeforeEach

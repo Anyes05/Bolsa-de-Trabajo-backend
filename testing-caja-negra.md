@@ -170,12 +170,13 @@ Resultado esperado:
      No hizo falta cambiar Nginx.
    - **Verificación:** CN-API-06b (caja negra) y `AuthRateLimitServiceTest` (unitarias).
 
-2. **La salud del servicio depende del correo.** Estado: observación.
-   - **Qué pasa:** `/actuator/health` responde 503 si el SMTP no está disponible, porque Spring
-     incluye el chequeo de correo.
-   - **Impacto:** una caída de Gmail puede hacer que la aplicación figure como caída.
-   - **En las pruebas:** se desactivó solo en el entorno de prueba (`management.health.mail.enabled=false`).
-   - **A decidir:** si conviene hacer lo mismo en producción.
+2. **La salud del servicio dependía del correo.** Estado: **corregido** (23/11/2026).
+   - **Qué pasaba:** `/actuator/health` respondía 503 si el SMTP no estaba disponible, porque Spring
+     incluía el chequeo de correo. El deploy verifica ese endpoint, así que una caída de Gmail podía
+     hacer fallar el deploy aunque la aplicación funcionara.
+   - **Corrección:** `management.health.mail.enabled: false` en `application.yml`. El correo es
+     best-effort; la base de datos y el disco se siguen chequeando.
+   - **Verificación:** CN-API-10 corre sin SMTP y espera 200.
 
 3. **El listado de postulaciones de una oferta ajena responde 200 vacío.** Estado: aceptado.
    - **Qué pasa:** un socio que consulta las postulaciones de una oferta que no es suya recibe 200
