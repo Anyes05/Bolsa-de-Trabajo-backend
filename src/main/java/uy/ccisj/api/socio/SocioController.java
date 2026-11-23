@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import uy.ccisj.api.socio.dto.CredencialesEnviadasDTO;
@@ -34,6 +37,14 @@ public class SocioController {
     @GetMapping
     public List<SocioResponseDTO> list() {
         return socioService.getAllSocios();
+    }
+
+    @GetMapping("/pagina")
+    public PageResponse<SocioResponseDTO> page(@RequestParam(required = false) String q,
+                                               @RequestParam(defaultValue = "false") boolean incompletos,
+                                               @RequestParam(required = false) Integer page,
+                                               @RequestParam(required = false) Integer size) {
+        return socioService.pageSocios(ListQuery.of(q, page, size), incompletos);
     }
 
     @GetMapping("/rubros")

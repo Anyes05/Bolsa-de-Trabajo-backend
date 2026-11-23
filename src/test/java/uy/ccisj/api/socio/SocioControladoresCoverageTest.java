@@ -38,7 +38,15 @@ class SocioControladoresCoverageTest {
     void cajaControllerDelegaCadaOperacionEnElServicio() {
         CajaService service = mock(CajaService.class);
         CajaController controller = new CajaController(service);
-        CajaResumenDTO resumen = new CajaResumenDTO(0, 0, 0, 0, List.of());
+        CajaResumenDTO resumen = new CajaResumenDTO(0, 0, 0, 0);
+        var paginaCuentas = new uy.ccisj.api.common.PageResponse<CuentaCajaDTO>(List.of(), 1, 5, 0, 0);
+        when(service.listarCuentas(new uy.ccisj.api.common.ListQuery("acme", 1, 5), CajaService.FiltroCaja.DEUDA))
+                .thenReturn(paginaCuentas);
+        assertSame(paginaCuentas, controller.cuentas(" acme ", CajaService.FiltroCaja.DEUDA, 1, 5));
+        assertEquals(400, org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> controller.cuentas(null, null, 0, 1000)).getStatusCode().value(),
+                "el tamaño de página está acotado");
         HistorialCajaDTO historial = mock(HistorialCajaDTO.class);
         CuentaCajaDTO cuenta = mock(CuentaCajaDTO.class);
         var cobro = new RegistrarCobroDTO(1L, MetodoPago.EFECTIVO, BigDecimal.TEN, null, null);
@@ -128,6 +136,11 @@ class SocioControladoresCoverageTest {
         assertSame(rubros, perfilController.rubros());
 
         assertSame(directorio, new SocioDirectorioController(service).list(auth));
+        var paginaDirectorio = new uy.ccisj.api.common.PageResponse<>(directorio, 0, 20, 1, 1);
+        when(service.pageDirectorio("socio@example.test", new uy.ccisj.api.common.ListQuery("", 0, 20),
+                uy.ccisj.api.domain.EstadoMorosidad.AL_DIA)).thenReturn(paginaDirectorio);
+        assertSame(paginaDirectorio, new SocioDirectorioController(service)
+                .page(auth, null, uy.ccisj.api.domain.EstadoMorosidad.AL_DIA, null, null));
     }
 
     @Test

@@ -6,12 +6,16 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
 import uy.ccisj.api.domain.EstadoCuota;
 import uy.ccisj.api.domain.EstadoMorosidad;
 import uy.ccisj.api.socio.dto.CajaResumenDTO;
@@ -46,6 +50,10 @@ public class CajaService {
         this.entityManager = entityManager;
     }
 
+    /** Filtros de la tabla de Caja. DEUDA = saldo pendiente mayor a cero, sin importar el estado. */
+    public enum FiltroCaja { TODOS, DEUDA, AL_DIA, MOROSO, INACTIVO }
+
+    /** Solo métricas; las cuentas se piden paginadas con {@link #listarCuentas}. */
     @Transactional(readOnly = true)
     public CajaResumenDTO getResumen() {
         List<CuentaCajaDTO> cuentas = socioRepository.findAllByOrderByRazonSocialAsc().stream()
@@ -55,8 +63,45 @@ public class CajaService {
                 cuentas.size(),
                 cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.AL_DIA).count(),
                 cuentas.stream().filter(cuenta -> cuenta.saldo().signum() > 0).count(),
-                cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO).count(),
-                cuentas);
+                cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO).count());
+    }
+
+    /**
+     * Búsqueda, filtro y paginación del listado de Caja en el servidor.
+     * Saldo y estado se calculan desde el historial; la búsqueda de texto se aplica antes,
+     * sobre la entidad, para no calcular saldos de socios que no coinciden.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<CuentaCajaDTO> listarCuentas(ListQuery query, FiltroCaja filtro) {
+        FiltroCaja efectivo = filtro == null ? FiltroCaja.TODOS : filtro;
+        return query.paginate(cuentasFiltradas(query, cuenta -> coincideFiltro(cuenta, efectivo)));
+    }
+
+    /** Cuentas para exportar a Excel: filtradas en servidor por estados y búsqueda, sin paginar. */
+    @Transactional(readOnly = true)
+    public List<CuentaCajaDTO> cuentasParaExportar(ListQuery query, Set<EstadoMorosidad> estados) {
+        if (estados == null || estados.isEmpty()) return List.of();
+        return cuentasFiltradas(query, cuenta -> estados.contains(cuenta.estadoMorosidad()));
+    }
+
+    private List<CuentaCajaDTO> cuentasFiltradas(ListQuery query, Predicate<CuentaCajaDTO> filtro) {
+        return socioRepository.findAllByOrderByRazonSocialAsc().stream()
+                .filter(socio -> query.matches(socio.getRazonSocial(), socio.getRut(), cedulaSocio(socio),
+                        identificadorSocio(socio), socio.getRubro() == null ? null : socio.getRubro().getNombreRubro(),
+                        socio.getTelefono()))
+                .map(this::toCuenta)
+                .filter(filtro)
+                .toList();
+    }
+
+    static boolean coincideFiltro(CuentaCajaDTO cuenta, FiltroCaja filtro) {
+        return switch (filtro) {
+            case TODOS -> true;
+            case DEUDA -> cuenta.saldo().signum() > 0;
+            case AL_DIA -> cuenta.estadoMorosidad() == EstadoMorosidad.AL_DIA;
+            case MOROSO -> cuenta.estadoMorosidad() == EstadoMorosidad.MOROSO;
+            case INACTIVO -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO;
+        };
     }
 
     @Transactional(readOnly = true)

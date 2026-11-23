@@ -2,8 +2,13 @@ package uy.ccisj.api.postulante;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.RequestParam;
+import uy.ccisj.api.common.ApplicantListing;
+import uy.ccisj.api.common.ListQuery;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -34,7 +39,46 @@ public class AdminPostulanteController {
         this.presignedMinutes = presignedMinutes;
     }
 
+    /**
+     * Listado paginado: búsqueda (nombre, email, teléfono, cédula, perfil), rubro, disponibilidad,
+     * libreta y estado en bolsa se filtran en el servidor; se pagina por postulante.
+     */
     @GetMapping
+    public AdminApplicantPage page(Authentication authentication,
+                                   @RequestParam(required = false) String q,
+                                   @RequestParam(required = false) String rubro,
+                                   @RequestParam(required = false) String disponibilidad,
+                                   @RequestParam(required = false) String libreta,
+                                   @RequestParam(required = false) EstadoFiltro estado,
+                                   @RequestParam(required = false) Integer page,
+                                   @RequestParam(required = false) Integer size) {
+        ListQuery query = ListQuery.of(q, page, size);
+        ApplicantListing.Filters filters = ApplicantListing.Filters.of(rubro, disponibilidad, libreta);
+        List<ApplicantProfile> all = list(authentication);
+        Map<Long, String> estadoPorPostulante = new LinkedHashMap<>();
+        all.forEach(profile -> estadoPorPostulante.putIfAbsent(profile.applicantId(),
+                "ACTIVO".equals(profile.estado()) ? "ACTIVO" : "INACTIVO"));
+        List<ApplicantProfile> filtered = all.stream()
+                .filter(profile -> ApplicantListing.matches(fields(profile), query, filters))
+                .filter(profile -> estado == null || estado == EstadoFiltro.TODOS
+                        || estado.name().equals(estadoPorPostulante.get(profile.applicantId())))
+                .toList();
+        long activos = estadoPorPostulante.values().stream().filter("ACTIVO"::equals).count();
+        return new AdminApplicantPage(ApplicantListing.page(all, filtered, AdminPostulanteController::fields, query),
+                activos, estadoPorPostulante.size() - activos, all.size());
+    }
+
+    private static ApplicantListing.Fields fields(ApplicantProfile p) {
+        return new ApplicantListing.Fields(p.applicantId(), p.fullName(), p.email(), p.phone(), p.identityCard(),
+                p.profileName(), p.sectors(), p.availability(), p.license());
+    }
+
+    public enum EstadoFiltro { TODOS, ACTIVO, INACTIVO }
+
+    public record AdminApplicantPage(ApplicantListing.Page<ApplicantProfile> resultado, long activos,
+                                     long inactivos, long totalPerfiles) {}
+
+    /** Todos los perfiles (uso interno y tests); la API expone solo la versión paginada. */
     public List<ApplicantProfile> list(Authentication authentication) {
         requireAdmin(authentication.getName());
         return jdbcTemplate.query("""

@@ -1,6 +1,12 @@
 package uy.ccisj.api.socio;
 
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Set;
+import org.springframework.web.bind.annotation.RequestParam;
+import uy.ccisj.api.common.ListQuery;
+import uy.ccisj.api.common.PageResponse;
+import uy.ccisj.api.domain.EstadoMorosidad;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +36,20 @@ public class CajaController {
     @GetMapping
     public CajaResumenDTO resumen() {
         return cajaService.getResumen();
+    }
+
+    @GetMapping("/cuentas")
+    public PageResponse<CuentaCajaDTO> cuentas(@RequestParam(required = false) String q,
+                                               @RequestParam(required = false) CajaService.FiltroCaja filtro,
+                                               @RequestParam(required = false) Integer page,
+                                               @RequestParam(required = false) Integer size) {
+        return cajaService.listarCuentas(ListQuery.of(q, page, size), filtro);
+    }
+
+    @GetMapping("/cuentas/exportacion")
+    public List<CuentaCajaDTO> cuentasExportacion(@RequestParam(required = false) String q,
+                                                  @RequestParam(required = false) Set<EstadoMorosidad> estados) {
+        return cajaService.cuentasParaExportar(ListQuery.of(q, null, null), estados);
     }
 
     @GetMapping("/socios/{socioId}/historial")

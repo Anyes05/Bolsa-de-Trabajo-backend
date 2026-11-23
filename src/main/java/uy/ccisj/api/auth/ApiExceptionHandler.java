@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
@@ -39,6 +40,12 @@ public class ApiExceptionHandler {
                 ? "La fecha no tiene un formato válido. Usa AAAA-MM-DD."
                 : "Los datos enviados no tienen un formato válido.";
         return body(HttpStatus.BAD_REQUEST.value(), detail);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        // No se refleja el valor recibido en la respuesta.
+        return body(HttpStatus.BAD_REQUEST.value(), "El parámetro '" + exception.getName() + "' no tiene un formato válido.");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

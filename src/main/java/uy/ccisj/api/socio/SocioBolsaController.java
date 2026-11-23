@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
+import uy.ccisj.api.common.ApplicantListing;
 import uy.ccisj.api.common.ApplicantViews;
+import uy.ccisj.api.common.ListQuery;
 import uy.ccisj.api.mail.MailNotificationService;
 import uy.ccisj.api.mail.MailTemplate;
 import uy.ccisj.api.notificacion.Notificacion;
@@ -53,9 +55,40 @@ public class SocioBolsaController {
         this.presignedMinutes = presignedMinutes;
     }
 
+    /**
+     * Bolsa paginada: búsqueda, rubro, disponibilidad, libreta y orden en el servidor; se pagina por postulante.
+     * La elegibilidad del socio y el enmascaramiento de datos sin postulación se mantienen (vía {@link #search}).
+     */
     @GetMapping
-    public List<ApplicantProfileCard> search(Authentication authentication,
-            @RequestParam(required = false) String rubro) {
+    public ApplicantListing.Page<ApplicantProfileCard> page(Authentication authentication,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String rubro,
+            @RequestParam(required = false) String disponibilidad,
+            @RequestParam(required = false) String libreta,
+            @RequestParam(required = false) Orden orden,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        ListQuery query = ListQuery.of(q, page, size);
+        ApplicantListing.Filters filters = ApplicantListing.Filters.of(rubro, disponibilidad, libreta);
+        List<ApplicantProfileCard> all = search(authentication, null);
+        java.util.stream.Stream<ApplicantProfileCard> filtered = all.stream()
+                .filter(card -> ApplicantListing.matches(fields(card), query, filters));
+        if (orden == Orden.NOMBRE) {
+            filtered = filtered.sorted(java.util.Comparator.comparing(ApplicantProfileCard::fullName,
+                    java.text.Collator.getInstance(java.util.Locale.forLanguageTag("es"))));
+        }
+        return ApplicantListing.page(all, filtered.toList(), SocioBolsaController::fields, query);
+    }
+
+    public enum Orden { RECIENTES, NOMBRE }
+
+    private static ApplicantListing.Fields fields(ApplicantProfileCard c) {
+        return new ApplicantListing.Fields(c.applicantId(), c.fullName(), c.email(), c.phone(), c.identityCard(),
+                c.profileName(), c.sectors(), c.availability(), c.license());
+    }
+
+    /** Todos los perfiles visibles (uso interno y tests); la API expone solo la versión paginada. */
+    public List<ApplicantProfileCard> search(Authentication authentication, String rubro) {
         Long socioId = requireEligibleSocio(authentication.getName());
         return jdbcTemplate.query("""
                 SELECT pl.id, p.id AS postulante_id, p.nombre_completo, u.email, p.telefono, pl.nombre AS perfil_nombre, p.zona_residencia,

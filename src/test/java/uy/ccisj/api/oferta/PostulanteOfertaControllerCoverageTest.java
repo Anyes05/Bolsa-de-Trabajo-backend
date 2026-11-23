@@ -36,6 +36,18 @@ class PostulanteOfertaControllerCoverageTest {
         assertThat(controller.mine(postulante)).containsExactly(propia);
         verify(postulaciones).listOffers(3L);
         verify(postulaciones).listMine("ana@example.test");
+
+        var pagina = controller.page(postulante, 3L, 0, 10);
+        assertThat(pagina.content()).containsExactly(oferta);
+        assertThat(pagina.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void paginaDeOfertasRechazaOtrosRolesYParametrosInvalidos() {
+        assertForbidden(() -> controller.page(auth("socio@example.test", "ROLE_SOCIO"), null, null, null));
+        assertThatThrownBy(() -> controller.page(auth("ana@example.test", "ROLE_POSTULANTE"), null, -1, 10))
+                .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(postulaciones);
     }
 
     @Test
