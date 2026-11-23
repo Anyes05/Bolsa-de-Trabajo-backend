@@ -26,6 +26,7 @@ código de estado, cuerpo de la respuesta y efectos observables por otras llamad
   - `ControlDeAccesoCajaNegraTest.java`
   - `BolsaDeEmpleoCajaNegraTest.java`
   - `CajaYDatosCajaNegraTest.java`
+  - `PaginacionCajaNegraTest.java`
 
 ### Ejecución
 
@@ -47,8 +48,9 @@ Particularidades de Windows:
 
 ### Resultado
 
-**64 casos ejecutados, 64 aprobados**, todos en la ejecución completa de `mvn verify`:
-593 tests en total, 0 fallos y 1 omitido a propósito (el reset destructivo).
+**74 casos ejecutados, 74 aprobados**, todos en la ejecución completa de `mvn verify`:
+618 tests en total, 0 fallos y 1 omitido a propósito (el reset destructivo). Cobertura de líneas
+del backend con todas las pruebas: 100% (4045/4045).
 
 ## Casos de prueba
 
@@ -63,6 +65,7 @@ Particularidades de Windows:
 | CN-API-04 | PE inválidas | Sin aceptar términos; correo mal formado; correo ya registrado | 400; 400; 409 con un mensaje genérico que no revela si el correo existe | ✅ |
 | CN-API-05 | PE | Ingreso correcto; clave incorrecta; rol equivocado; usuario inexistente; identificador vacío; sin rol | 200; 401; 401; 401; 400; 400 | ✅ |
 | CN-API-06 | TE | 5 intentos fallidos desde el mismo cliente, y luego un 6.º intento (incluso con la clave correcta) | Los 5 primeros dan 401; el 6.º da 429 (bloqueado) | ✅ |
+| CN-API-06b | TE, PE inválida | Los mismos 5 fallos desde un cliente, cambiando `X-Forwarded-For` en cada intento | El 6.º intento igual da 429: el encabezado falso no saltea el límite (corrección del hallazgo 1) | ✅ |
 | CN-API-07 | TE | `/auth/me` → logout → `/auth/me` con el mismo token | 200 → 2xx → 401: el token queda invalidado en el servidor | ✅ |
 | CN-API-08 | PE inválidas | Sin token; token mal formado; token con la firma alterada | 401 en cada caso | ✅ |
 
@@ -142,20 +145,30 @@ Resultado esperado:
 | CN-API-20 | PE | Alta de socio válida; identificador repetido; sin datos obligatorios | 201, con una clave provisional de 12 caracteres o más que no contiene la cédula; 409; 400 | ✅ |
 | CN-API-21 | PE | Datos personales válidos; cada campo obligatorio vacío; cédula de otro postulante | 200; 400 en cada campo; 409 (nunca 500) | ✅ |
 
+### Listados paginados (búsqueda, filtros y paginación en el servidor) — `PaginacionCajaNegraTest`
+
+| ID | Técnica | Entrada | Resultado esperado | Obtenido |
+|---|---|---|---|---|
+| CN-API-22 | VL | Tamaño de página 0 / 1 / 100 / 101 | 400 / 200 / 200 / 400 | ✅ |
+| CN-API-23 | VL, PE inválidas | Página −1; búsqueda de 100 y de 101 caracteres; `page=uno`; `estado` y `libreta` con valores fuera del catálogo | 400; 200 / 400; 400 sin repetir el valor recibido en el mensaje; 400 | ✅ |
+| CN-API-24 | PE | Buscar un socio por razón social; pedir una página fuera de rango | Encuentra exactamente 1; la página viene vacía pero informa el total | ✅ |
+| CN-API-25 | PE | Postulantes del admin con `estado` TODOS / ACTIVO / INACTIVO y búsqueda por correo | 200 en cada estado; la búsqueda devuelve 1 perfil; filtrando INACTIVO, 0 | ✅ |
+| CN-API-26 | PE | Bolsa del socio ordenada por nombre o recientes, con filtros de rubro, disponibilidad y libreta; orden inválido | 200 con página en cada combinación; orden inválido da 400 | ✅ |
+| CN-API-27 | PE, TD | Exportación de Caja sin estados y con todos los estados; oferta por id como admin, socio dueño, otro socio y anónimo | Vacía / encuentra al socio; 200, 200, 404, 401 | ✅ |
+
 ## Hallazgos
 
-1. **Se puede saltear el límite de intentos de ingreso.** Estado: abierto, **pendiente de corregir**.
-   - **Qué pasa:** `AuthRateLimitService.clientIp` identifica al cliente con el **primer** valor del
-     encabezado `X-Forwarded-For`, y ese valor lo puede enviar cualquier cliente.
-   - **Por qué alcanza a producción:** Nginx usa `$proxy_add_x_forwarded_for`, que **agrega** la IP
-     real al final pero conserva lo que mandó el cliente.
-   - **Impacto:** un atacante puede cambiar ese encabezado en cada intento y saltearse el límite de
-     5 intentos cada 15 minutos (protección contra fuerza bruta del SSDLC) y el de 10 registros.
-   - **Cómo corregirlo:** que Nginx envíe `X-Real-IP $remote_addr` y que el backend use ese valor o
-     `getRemoteAddr()`, o bien tomar la **última** IP de la lista.
-   - **Cómo lo trata la prueba:** CN-API-06 usa una IP fija para comprobar que el bloqueo funciona.
-     Las demás pruebas envían IPs distintas a propósito para no interferir entre sí, y así muestran
-     que el límite depende de ese encabezado.
+1. **Se podía saltear el límite de intentos de ingreso.** Estado: **corregido** (23/11/2026).
+   - **Qué pasaba:** `AuthRateLimitService.clientIp` identificaba al cliente con el **primer** valor
+     del encabezado `X-Forwarded-For`, y ese valor lo puede escribir cualquier cliente. Nginx usa
+     `$proxy_add_x_forwarded_for`, que agrega la IP real al final pero conserva lo que mandó el cliente.
+   - **Impacto:** cambiando ese encabezado en cada intento se salteaba el límite de 5 intentos cada
+     15 minutos (protección contra fuerza bruta del SSDLC) y el de 10 registros.
+   - **Corrección:** el backend ya no usa `X-Forwarded-For`. Usa `X-Real-IP`, que el Nginx del host
+     fija con `$remote_addr` (no lo puede alterar el cliente), y solo si el pedido llega desde el
+     proxy propio (loopback o red privada). Desde cualquier otro origen usa la IP de la conexión.
+     No hizo falta cambiar Nginx.
+   - **Verificación:** CN-API-06b (caja negra) y `AuthRateLimitServiceTest` (unitarias).
 
 2. **La salud del servicio depende del correo.** Estado: observación.
    - **Qué pasa:** `/actuator/health` responde 503 si el SMTP no está disponible, porque Spring

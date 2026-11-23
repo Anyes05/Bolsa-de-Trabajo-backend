@@ -115,6 +115,21 @@ class AutenticacionCajaNegraTest extends ApiCajaNegraBase {
     }
 
     @Test
+    @DisplayName("CN-API-06b Cambiar X-Forwarded-For en cada intento no evita el bloqueo (corrección del hallazgo 1)")
+    void forwardedForFalsoNoSalteaElLimite() {
+        String email = unico("bypass") + "@example.test";
+        registrarPostulante(email);
+        String mismaIp = "10.98.0." + (int) (Math.random() * 200 + 1);
+        Map<String, Object> claveMala = Map.of("role", "POSTULANTE", "identifier", email, "password", "Mala-Clave-1");
+
+        for (int intento = 1; intento <= 5; intento++) {
+            String falso = "203.0.113." + intento;
+            assertThat(enviar("POST", "/auth/login", claveMala, null, mismaIp, falso).status()).isEqualTo(401);
+        }
+        assertThat(enviar("POST", "/auth/login", claveMala, null, mismaIp, "198.51.100.77").status()).isEqualTo(429);
+    }
+
+    @Test
     @DisplayName("CN-API-07 Cerrar sesión invalida el token en el servidor (transición sesión activa → cerrada)")
     void cierreDeSesion() {
         String token = registrarPostulante(unico("logout") + "@example.test");

@@ -469,3 +469,14 @@ Medición local con `mvn --batch-mode clean verify` y PostgreSQL 16 de prueba en
   - `CvService`: devuelve 404 en lugar de NPE si el perfil desaparece durante la subida, y el
     estado civil se detecta aunque tenga tildes.
   - Importación de socios: una fila que falla al guardar cuenta como error en el resumen.
+
+## Cobertura tras la paginación en el servidor — 23/11/2026
+
+Con la paginación incorporada: **618 tests**, 0 fallos, 1 omitido. JaCoCo: **4045/4045 líneas (100%)**
+y 1845/1861 ramas (99,1%). Las líneas nuevas de los listados paginados se cubren con
+`PaginacionCajaNegraTest` (ver `testing-caja-negra.md`) y `ApplicantListingCoverageTest`.
+
+Si el reporte muestra de golpe cientos de líneas sin cubrir y el log de Maven dice
+`Execution data ... does not match`, no es una caída de cobertura: el IDE (extensión Java de
+VS Code) recompiló `target/classes` mientras corrían los tests. Hay que repetir con el IDE sin
+compilar, o correr `mvn verify` en una copia del repo.

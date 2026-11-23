@@ -93,7 +93,10 @@ abstract class ApiCajaNegraBase {
         }
     }
 
-    /** Cada pedido simula un cliente distinto para que el límite de intentos no mezcle casos. */
+    /**
+     * Cada pedido simula un cliente distinto para que el límite de intentos no mezcle casos.
+     * Las pruebas llegan por loopback, como el Nginx propio, que informa la IP real en X-Real-IP.
+     */
     private String ipCliente() {
         return "10.20." + (SECUENCIA.get() / 250) + "." + (SECUENCIA.incrementAndGet() % 250 + 1);
     }
@@ -103,11 +106,17 @@ abstract class ApiCajaNegraBase {
     }
 
     Respuesta enviar(String metodo, String ruta, Object cuerpo, String token, String ip) {
+        return enviar(metodo, ruta, cuerpo, token, ip, null);
+    }
+
+    /** Igual que {@link #enviar}, agregando un X-Forwarded-For escrito por el "cliente". */
+    Respuesta enviar(String metodo, String ruta, Object cuerpo, String token, String ip, String falsoForwardedFor) {
         try {
             HttpRequest.Builder pedido = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api" + ruta))
                     .timeout(Duration.ofSeconds(30))
                     .header("Content-Type", "application/json")
-                    .header("X-Forwarded-For", ip);
+                    .header("X-Real-IP", ip);
+            if (falsoForwardedFor != null) pedido.header("X-Forwarded-For", falsoForwardedFor);
             if (token != null) pedido.header("Authorization", "Bearer " + token);
             HttpRequest.BodyPublisher body = cuerpo == null
                     ? HttpRequest.BodyPublishers.noBody()
@@ -134,7 +143,7 @@ abstract class ApiCajaNegraBase {
             HttpRequest pedido = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api" + ruta))
                     .header("Content-Type", "multipart/form-data; boundary=" + limite)
                     .header("Authorization", "Bearer " + token)
-                    .header("X-Forwarded-For", ipCliente())
+                    .header("X-Real-IP", ipCliente())
                     .POST(HttpRequest.BodyPublishers.ofByteArray(cuerpo.toByteArray()))
                     .build();
             return leer(HTTP.send(pedido, HttpResponse.BodyHandlers.ofString()));

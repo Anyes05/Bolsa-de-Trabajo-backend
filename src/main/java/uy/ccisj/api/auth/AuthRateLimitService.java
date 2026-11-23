@@ -1,5 +1,7 @@
 package uy.ccisj.api.auth;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,6 +15,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class AuthRateLimitService {
+    private static final java.util.regex.Pattern IPV4 = java.util.regex.Pattern.compile(
+            "((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)");
     private static final int LOGIN_MAX = 5;
     private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
     private static final int PUBLIC_MAX = 10;
@@ -39,12 +43,35 @@ public class AuthRateLimitService {
         record(key(action, clientIp(request), ""));
     }
 
+    /**
+     * IP del cliente para el límite de intentos.
+     *
+     * <p>No se usa {@code X-Forwarded-For}: su primer valor lo escribe el propio cliente, y cambiándolo
+     * en cada intento se salteaba el límite. Solo se confía en {@code X-Real-IP} cuando el pedido llega
+     * desde el proxy propio (loopback o red privada: el Nginx del host o del contenedor), que lo fija
+     * con {@code $remote_addr}. Desde cualquier otro origen se usa la IP de la conexión.
+     */
     public static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        String remote = request.getRemoteAddr();
+        if (remote == null || remote.isBlank()) {
+            return "unknown";
         }
-        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank() && isTrustedProxy(remote)) {
+            return realIp.trim();
+        }
+        return remote;
+    }
+
+    private static boolean isTrustedProxy(String address) {
+        try {
+            // Solo literales de IP válidos: así InetAddress nunca intenta resolver un nombre por DNS.
+            if (!IPV4.matcher(address).matches() && !address.contains(":")) return false;
+            InetAddress parsed = InetAddress.getByName(address);
+            return parsed.isLoopbackAddress() || parsed.isSiteLocalAddress();
+        } catch (UnknownHostException exception) {
+            return false;
+        }
     }
 
     private void assertUnder(String key, int max, Duration window, String message) {
