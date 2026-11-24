@@ -103,4 +103,26 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- Solo `mvn -Psast pmd:pmd` (script local). No se engancha a compile/test/verify/CI. -->
+    <profiles>
+        <profile>
+            <id>sast</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-pmd-plugin</artifactId>
+                        <version>3.26.0</version>
+                        <configuration>
+                            <includeTests>false</includeTests>
+                            <rulesets>
+                                <ruleset>category/java/security.xml</ruleset>
+                            </rulesets>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

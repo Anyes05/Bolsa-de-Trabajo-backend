@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +15,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 /** CN-API-11 a CN-API-16: ofertas laborales y postulaciones (RF-11), de punta a punta por HTTP. */
 @DisplayName("Caja negra API — bolsa de empleo y postulaciones (RF-11)")
 class BolsaDeEmpleoCajaNegraTest extends ApiCajaNegraBase {
+
+    /** La API rechaza cierres anteriores a hoy en America/Montevideo, no en la zona del runner. */
+    private static final ZoneId APP_ZONE = ZoneId.of("America/Montevideo");
 
     private record Escenario(String admin, SocioConSesion socio, long ofertaId, String postulante, long perfilId) {}
 
@@ -145,8 +149,8 @@ class BolsaDeEmpleoCajaNegraTest extends ApiCajaNegraBase {
         long rubroId = enviar("GET", "/ofertas/rubros", null, admin).cuerpo().get(0).get("id").asLong();
         Map<String, Object> oferta = ofertaValida(socio.id(), rubroId);
         Object dato = switch (valor) {
-            case "AYER" -> LocalDate.now().minusDays(1).toString();
-            case "HOY" -> LocalDate.now().toString();
+            case "AYER" -> LocalDate.now(APP_ZONE).minusDays(1).toString();
+            case "HOY" -> LocalDate.now(APP_ZONE).toString();
             case "T180" -> "T".repeat(180);
             case "T181" -> "T".repeat(181);
             default -> campo.equals("vacantes") ? (Object) Integer.parseInt(valor) : valor;

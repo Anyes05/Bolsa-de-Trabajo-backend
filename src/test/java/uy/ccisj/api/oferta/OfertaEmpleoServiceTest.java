@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,9 @@ import uy.ccisj.api.user.User;
 import uy.ccisj.api.user.UserRepository;
 
 class OfertaEmpleoServiceTest {
+    /** Misma zona que OfertaEmpleoService. En CI (UTC) el día calendario no coincide con Montevideo. */
+    private static final ZoneId APP_ZONE = ZoneId.of("America/Montevideo");
+
     private final OfertaEmpleoRepository ofertas = mock(OfertaEmpleoRepository.class);
     private final SocioRepository socios = mock(SocioRepository.class);
     private final RubroEmpleoRepository rubros = mock(RubroEmpleoRepository.class);
@@ -147,7 +151,7 @@ class OfertaEmpleoServiceTest {
         assertStatus(HttpStatus.BAD_REQUEST, () -> service.setStatus(
                 "admin@example.com", true, 1L, EstadoOferta.VENCIDA));
 
-        offer.setFechaCierre(LocalDate.now().minusDays(1));
+        offer.setFechaCierre(LocalDate.now(APP_ZONE).minusDays(1));
         assertEquals(EstadoOferta.VENCIDA,
                 service.setStatus("admin@example.com", true, 1L, EstadoOferta.ACTIVA).estado());
 
@@ -170,7 +174,7 @@ class OfertaEmpleoServiceTest {
                         null, null, null, null, null, 0, null, null)));
         assertStatus(HttpStatus.BAD_REQUEST, () -> service.create(
                 "socio@example.com", false, request(null, 20L, "Título", "Descripción",
-                        LocalDate.now().minusDays(1), null, null)));
+                        LocalDate.now(APP_ZONE).minusDays(1), null, null)));
 
         mockCurrentSocio("socio@example.com", socio(10L, "Empresa"));
         RubroEmpleo inactive = rubro(20L, "Inactivo", false);
