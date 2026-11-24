@@ -18,7 +18,7 @@ Desde la raíz de este repo:
 | SCA | Trivy `fs` scanners `vuln` + `secret` | **0.76.2** (instalado en esta corrida) | `pom.xml` y archivos del repo | Terminó. **140 CVE** (12 critical, 54 high, 58 medium, 16 low). **0 secretos.** |
 | SCA | `mvn dependency:list` + POST a `https://api.osv.dev/v1/querybatch` | Maven dependency-plugin 3.8.1, Node v22.23.2 | 165 jars `compile`/`runtime` | Terminó. **27 artefactos** con al menos un GHSA. |
 
-DAST no se corre acá. ZAP está en el frontend y **esta noche no pudo conectar** a `https://ccisj.cloud-ip.cc` (timeout al puerto 443, dos intentos). No hay reporte nuevo de cabeceras.
+DAST no se corre acá. ZAP está en el frontend. El reintento de las **23:07** contra `https://ccisj.cloud-ip.cc` terminó: **0 FAIL, 10 WARN, 58 PASS**. El high es `Server: nginx/1.30.4`. Detalle en el informe del frontend.
 
 No se usó Semgrep, Python, Trivy contra una imagen Docker del JAR, ni OSS Index (responde 401 sin cuenta).
 
@@ -31,7 +31,7 @@ No se usó Semgrep, Python, Trivy contra una imagen Docker del JAR, ni OSS Index
 | Trivy | 140 CVE sobre el mismo árbol, 12 critical | Misma causa, otra base (NVD/GHSA) y otro conteo: Trivy cuenta cada CVE, OSV cuenta artefactos. |
 | Secretos en el repo | 0 | Trivy secret scanner. |
 
-La corrección de fondo es subir Boot a **3.5.x**. No se tocó la versión del parent en esta corrida.
+La corrección de fondo es subir Boot a **3.5.x**. Quedó **pendiente** de hablarlo con el equipo. No se tocó el parent.
 
 ## SAST — PMD
 
