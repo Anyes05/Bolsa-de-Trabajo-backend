@@ -151,7 +151,7 @@ class SecurityConfigCoverageTest {
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.detail").value("Acceso denegado"))
-                .andExpect(jsonPath("$.reason").value("AccessDeniedException"));
+                .andExpect(jsonPath("$.reason").value("AuthorizationDeniedException"));
     }
 
     @Test

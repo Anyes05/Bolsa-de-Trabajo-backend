@@ -24,7 +24,7 @@ Planificación, análisis y diseño de seguridad (básico). Las herramientas SAS
 | Upload con Content-Type falso | Alto | Firma real (PDF/DOCX, JPG/PNG/WEBP); PDF parseado con tope de páginas/archivo temp |
 | Escalada de rol | Alto | `SecurityConfig`: `/admin/**`, `/socio/**`, `/postulante/**`, `/ofertas` admin/socio |
 | Clickjacking / MIME sniffing | Medio | Cabeceras Nginx + filtro API |
-| Dependencias viejas | Medio | SCA local (Trivy). Spring Boot 3.3.3: upgrade pendiente |
+| Dependencias viejas | Medio | SCA local (Trivy). Spring Boot actualizado a 3.5.16 (24/11/2026); Flyway 11.10.5 fijo |
 | SQL injection | Bajo | Consultas parametrizadas (ya estaba) |
 | XSS | Bajo | Vue escapa HTML; no hay `v-html` |
 
@@ -50,7 +50,7 @@ Anotar hallazgos en `scripts/seguridad/HALLAZGOS.md`.
 
 **Hardening prod (pendiente de deploy):** cabeceras en `nginx.conf` del frontend. Rol IAM en la EC2: no se tocó el job de CI.
 
-**SCA producto:** Spring Boot 3.3.3 ya no recibe parches públicos OSS. Subir a 3.5.x cuando se dé el OK.
+**SCA producto:** Spring Boot se actualizó de 3.3.3 (sin parches públicos OSS) a 3.5.16 el 24/11/2026. Flyway sigue fijo en 11.10.5 por la propiedad `flyway.version`. Se verificó contra PostgreSQL 17 (como RDS): 618 tests, `flyway:migrate` del pipeline sobre base vacía (40 migraciones) y arranque de la app con validación de esquema.
 
 ## 5. Términos y condiciones
 
