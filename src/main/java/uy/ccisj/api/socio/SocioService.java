@@ -291,9 +291,6 @@ public class SocioService {
             ficticios.remove(CamposFicticios.FECHA_ANIVERSARIO);
         }
         socio.setFechaAniversario(dto.fechaAniversario());
-        if (dto.estadoMorosidad() != null) {
-            applyEstadoMorosidad(socio, dto.estadoMorosidad());
-        }
         Direccion direccion = socio.getDireccion();
         String nuevaCalle = dto.calle().trim();
         String nuevoNumero = trimToNull(dto.numero());
@@ -535,19 +532,6 @@ public class SocioService {
     private void applyProvisionalPasswordWindow(User user) {
         user.setDebeCambiarPassword(true);
         user.setPasswordProvisionalHasta(OffsetDateTime.now().plusHours(24));
-    }
-
-    private void applyEstadoMorosidad(Socio socio, EstadoMorosidad estado) {
-        if (estado == EstadoMorosidad.INACTIVO) {
-            markInactive(socio);
-            return;
-        }
-        if (!isActive(socio)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Para reanudar la suscripción, ingresá la fecha en Historial de gestión de socios");
-        }
-        markActive(socio);
-        socio.setEstadoMorosidad(estado);
     }
 
     private void markInactive(Socio socio) {

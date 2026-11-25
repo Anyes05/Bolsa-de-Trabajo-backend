@@ -116,9 +116,9 @@ class SocioServiceCoverageTest {
     }
 
     private static SocioUpdateDTO edicion(String bps, String emailUsuario, String rut, Long rubroId,
-            LocalDate fechaAlta, LocalDate fechaAniversario, EstadoMorosidad estado) {
+            LocalDate fechaAlta, LocalDate fechaAniversario) {
         return new SocioUpdateDTO(bps, emailUsuario, " Nueva Razón ", rut, " 098 765 ", " Contacto@Empresa.Test ",
-                " Calle Nueva ", " 55 ", " " + LOCALIDAD + " ", rubroId, false, fechaAlta, fechaAniversario, estado);
+                " Calle Nueva ", " 55 ", " " + LOCALIDAD + " ", rubroId, false, fechaAlta, fechaAniversario);
     }
 
     private MailTemplate.Content mailEnviado(String destinatario) {
@@ -509,7 +509,7 @@ class SocioServiceCoverageTest {
         socio(7L, user(10L, "c@e.test", Role.SOCIO), "Empresa");
         when(socios.existsByRutIgnoreCaseAndIdNot(RUT, 7L)).thenReturn(true);
         assertEquals("Ya existe un socio con ese RUT o cédula", motivo(() -> service.updateSocio(7L,
-                edicion(null, null, RUT, 1L, null, null, null))));
+                edicion(null, null, RUT, 1L, null, null))));
         verify(history).lock(7L);
         verify(socios, never()).save(any());
     }
@@ -531,7 +531,7 @@ class SocioServiceCoverageTest {
         socio.setEstadoMorosidad(EstadoMorosidad.MOROSO);
 
         SocioResponseDTO dto = service.updateSocio(7L, edicion(" 123.456.789 ", " Real@Empresa.Test ",
-                RUT, 2L, LocalDate.of(2010, 5, 5), LocalDate.of(2011, 6, 6), EstadoMorosidad.AL_DIA));
+                RUT, 2L, LocalDate.of(2010, 5, 5), LocalDate.of(2011, 6, 6)));
 
         assertNull(socio.getCamposFicticios());
         assertEquals(List.of(), dto.camposFicticios());
@@ -543,7 +543,7 @@ class SocioServiceCoverageTest {
         assertFalse(dto.esDirectivo());
         assertEquals(LocalDate.of(2010, 5, 5), dto.fechaAlta());
         assertEquals(LocalDate.of(2011, 6, 6), dto.fechaAniversario());
-        assertEquals(EstadoMorosidad.AL_DIA, dto.estadoMorosidad());
+        assertEquals(EstadoMorosidad.MOROSO, dto.estadoMorosidad());
         assertEquals("Calle Nueva", dto.calle());
         assertEquals("55", dto.numero());
         assertEquals(LOCALIDAD, dto.localidad());
@@ -569,7 +569,7 @@ class SocioServiceCoverageTest {
         socio.setCamposFicticios(todos);
 
         SocioResponseDTO dto = service.updateSocio(7L, edicion("123456789", "CUENTA@empresa.test",
-                RUT, 1L, LocalDate.of(2010, 5, 5), LocalDate.of(2011, 6, 6), null));
+                RUT, 1L, LocalDate.of(2010, 5, 5), LocalDate.of(2011, 6, 6)));
 
         assertEquals(todos, socio.getCamposFicticios());
         assertEquals(11, dto.camposFicticios().size());
@@ -588,7 +588,7 @@ class SocioServiceCoverageTest {
         socio.setCamposFicticios("bps,emailUsuario,fechaAlta,rubro");
 
         SocioResponseDTO dto = service.updateSocio(7L, edicion("  ", "  ", RUT, 1L,
-                LocalDate.of(2010, 5, 5), null, null));
+                LocalDate.of(2010, 5, 5), null));
 
         assertEquals("Calle Nueva", dto.calle());
         verify(direcciones).save(socio.getDireccion());
@@ -597,7 +597,7 @@ class SocioServiceCoverageTest {
         assertEquals("bps,emailUsuario,rubro", socio.getCamposFicticios(),
                 "sin rubro previo no se limpia el marcador de rubro");
 
-        service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null, null));
+        service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null));
         assertEquals("bps,emailUsuario,rubro", socio.getCamposFicticios());
         assertEquals(LocalDate.of(2010, 5, 5), socio.getFechaAlta(), "sin fecha de alta en el DTO se conserva la actual");
         verify(users, never()).save(any());
@@ -608,13 +608,13 @@ class SocioServiceCoverageTest {
         User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
         user.setBps("111111111");
         socio(7L, user, "Razón");
-        service.updateSocio(7L, edicion("222222222", "otra@empresa.test", RUT, 1L, null, null, null));
+        service.updateSocio(7L, edicion("222222222", "otra@empresa.test", RUT, 1L, null, null));
         assertEquals("111111111", user.getBps());
         assertEquals("cuenta@empresa.test", user.getEmail());
 
         Socio sinUsuario = socio(8L, null, "Sin usuario");
         sinUsuario.setCamposFicticios("bps,emailUsuario");
-        SocioResponseDTO dto = service.updateSocio(8L, edicion("222222222", "otra@empresa.test", RUT, 1L, null, null, null));
+        SocioResponseDTO dto = service.updateSocio(8L, edicion("222222222", "otra@empresa.test", RUT, 1L, null, null));
         assertEquals(List.of("bps", "emailUsuario"), dto.camposFicticios());
         verify(users, never()).save(any());
     }
@@ -627,71 +627,35 @@ class SocioServiceCoverageTest {
         socio.setCamposFicticios("bps,emailUsuario");
 
         assertEquals("El número de BPS debe tener al menos 9 dígitos", motivo(() -> service.updateSocio(7L,
-                edicion("12345678", null, RUT, 1L, null, null, null))));
+                edicion("12345678", null, RUT, 1L, null, null))));
 
         when(users.existsByBpsAndIdNot("123456789", 10L)).thenReturn(true);
         assertEquals("Ya existe un socio con ese BPS", motivo(() -> service.updateSocio(7L,
-                edicion("123456789", null, RUT, 1L, null, null, null))));
+                edicion("123456789", null, RUT, 1L, null, null))));
         when(users.existsByBpsAndIdNot("123456789", 10L)).thenReturn(false);
         when(users.existsByCedula("123456789")).thenReturn(true);
         assertEquals(HttpStatus.CONFLICT, status(() -> service.updateSocio(7L,
-                edicion("123456789", null, RUT, 1L, null, null, null))));
+                edicion("123456789", null, RUT, 1L, null, null))));
 
         when(users.existsByEmailIgnoreCaseAndIdNot("tomado@empresa.test", 10L)).thenReturn(true);
         assertEquals("Ya existe una cuenta con ese correo", motivo(() -> service.updateSocio(7L,
-                edicion(null, " Tomado@Empresa.Test ", RUT, 1L, null, null, null))));
+                edicion(null, " Tomado@Empresa.Test ", RUT, 1L, null, null))));
         assertEquals("000000000", user.getBps());
         assertEquals("cuenta@incompleto.ccisj.local", user.getEmail());
         verify(users, never()).save(any());
     }
 
     @Test
-    void updateSocioAEstadoInactivoDaDeBajaYCancelaReingresoPendiente() {
+    void updateSocioPreservaEstadoDeCuenta() {
         User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
         Socio socio = socio(7L, user, "Razón");
-        when(history.hasPending(7L)).thenReturn(true);
-
-        SocioResponseDTO dto = service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null, EstadoMorosidad.INACTIVO));
-
-        assertEquals(EstadoMorosidad.INACTIVO, dto.estadoMorosidad());
-        assertFalse(dto.activo());
-        assertFalse(user.isActivo());
-        assertNotNull(user.getFechaBaja());
-        InOrder orden = inOrder(history);
-        orden.verify(history).cancel(7L);
-        orden.verify(history).record(7L, "BAJA", LocalDate.of(2026, 5, 10));
-        assertEquals(EstadoMorosidad.INACTIVO, socio.getEstadoMorosidad());
-    }
-
-    @Test
-    void updateSocioNoReanudaUnaSuscripcionInactivaDesdeElEstado() {
-        User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
-        user.setActivo(false);
-        socio(7L, user, "Razón");
-        assertEquals("Para reanudar la suscripción, ingresá la fecha en Historial de gestión de socios",
-                motivo(() -> service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null, EstadoMorosidad.MOROSO))));
-
-        socio(8L, null, "Sin usuario");
-        assertEquals(HttpStatus.CONFLICT, status(() -> service.updateSocio(8L,
-                edicion(null, null, RUT, 1L, null, null, EstadoMorosidad.MOROSO))));
-
-        User activo = user(11L, "activo@empresa.test", Role.SOCIO);
-        Socio marcadoInactivo = socio(9L, activo, "Activo pero inactivo");
-        marcadoInactivo.setEstadoMorosidad(EstadoMorosidad.INACTIVO);
-        assertEquals(HttpStatus.CONFLICT, status(() -> service.updateSocio(9L,
-                edicion(null, null, RUT, 1L, null, null, EstadoMorosidad.AL_DIA))));
-    }
-
-    @Test
-    void updateSocioCambiaEstadoDeMorosidadDeUnSocioActivo() {
-        User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
-        Socio socio = socio(7L, user, "Razón");
-        SocioResponseDTO dto = service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null, EstadoMorosidad.MOROSO));
+        socio.setEstadoMorosidad(EstadoMorosidad.MOROSO);
+        SocioResponseDTO dto = service.updateSocio(7L, edicion(null, null, RUT, 1L, null, null));
         assertEquals(EstadoMorosidad.MOROSO, dto.estadoMorosidad());
         assertEquals(EstadoMorosidad.MOROSO, socio.getEstadoMorosidad());
         assertTrue(user.isActivo());
         assertNull(user.getFechaBaja());
-        verify(users).save(user);
+        verify(users, never()).save(user);
     }
 
     @Test
@@ -705,7 +669,7 @@ class SocioServiceCoverageTest {
         socio.setCamposFicticios("telefono,emailContacto,numero,fechaAniversario,calle");
 
         var dto = new SocioUpdateDTO(null, null, "Razón", RUT, "   ", null, "Calle", null, LOCALIDAD, 1L,
-                false, null, LocalDate.of(2015, 8, 25), null);
+                false, null, LocalDate.of(2015, 8, 25));
         SocioResponseDTO respuesta = service.updateSocio(7L, dto);
 
         assertNull(respuesta.telefono());

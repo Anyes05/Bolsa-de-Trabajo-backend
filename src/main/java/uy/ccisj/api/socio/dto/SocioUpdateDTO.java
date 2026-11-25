@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
-import uy.ccisj.api.domain.EstadoMorosidad;
 
 public record SocioUpdateDTO(
         @Size(max = 30) String bps,
@@ -21,6 +20,5 @@ public record SocioUpdateDTO(
         boolean esDirectivo,
         @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAlta,
         @NotNull(message = "La fecha de aniversario es obligatoria")
-        @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAniversario,
-        EstadoMorosidad estadoMorosidad) {
+        @JsonDeserialize(using = FlexibleLocalDateDeserializer.class) LocalDate fechaAniversario) {
 }
