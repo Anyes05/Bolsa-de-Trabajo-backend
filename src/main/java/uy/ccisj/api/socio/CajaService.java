@@ -50,7 +50,7 @@ public class CajaService {
         this.entityManager = entityManager;
     }
 
-    /** Filtros de la tabla de Caja. DEUDA = saldo pendiente mayor a cero, sin importar el estado. */
+    /** Filtros de la tabla de Caja. DEUDA = deuda vencida mayor a cero, sin importar el estado. */
     public enum FiltroCaja { TODOS, DEUDA, AL_DIA, MOROSO, INACTIVO }
 
     /** Solo métricas; las cuentas se piden paginadas con {@link #listarCuentas}. */
@@ -62,7 +62,7 @@ public class CajaService {
         return new CajaResumenDTO(
                 cuentas.size(),
                 cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.AL_DIA).count(),
-                cuentas.stream().filter(cuenta -> cuenta.saldo().signum() > 0).count(),
+                cuentas.stream().filter(cuenta -> cuenta.deudaVencida().signum() > 0).count(),
                 cuentas.stream().filter(cuenta -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO).count());
     }
 
@@ -97,7 +97,7 @@ public class CajaService {
     static boolean coincideFiltro(CuentaCajaDTO cuenta, FiltroCaja filtro) {
         return switch (filtro) {
             case TODOS -> true;
-            case DEUDA -> cuenta.saldo().signum() > 0;
+            case DEUDA -> cuenta.deudaVencida().signum() > 0;
             case AL_DIA -> cuenta.estadoMorosidad() == EstadoMorosidad.AL_DIA;
             case MOROSO -> cuenta.estadoMorosidad() == EstadoMorosidad.MOROSO;
             case INACTIVO -> cuenta.estadoMorosidad() == EstadoMorosidad.INACTIVO;

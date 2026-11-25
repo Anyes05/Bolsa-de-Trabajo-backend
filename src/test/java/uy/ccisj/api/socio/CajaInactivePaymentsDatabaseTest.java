@@ -111,16 +111,18 @@ class CajaInactivePaymentsDatabaseTest {
     }
 
     @Test
-    void includesOutstandingNonOverdueDebtInSummaryEvenWhenInactive() {
+    void excludesOutstandingNonOverdueDebtFromDebtFilterAndSummaryEvenWhenInactive() {
         addCuota();
         var summary = inTx(() -> caja.getResumen());
-        var conDeuda = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.DEUDA));
-        var account = conDeuda.content().stream().filter(c -> c.socioId().equals(socioId)).findFirst().orElseThrow();
+        var all = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.TODOS));
+        var account = all.content().stream().filter(c -> c.socioId().equals(socioId)).findFirst().orElseThrow();
         assertEquals(EstadoMorosidad.INACTIVO, account.estadoMorosidad());
         assertEquals(0, account.deudaVencida().signum());
+        var conDeuda = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.DEUDA));
+        assertTrue(conDeuda.content().stream().noneMatch(c -> c.socioId().equals(socioId)));
         var todasConDeuda = inTx(() -> caja.listarCuentas(ListQuery.of(null, 0, 1), CajaService.FiltroCaja.DEUDA));
         assertEquals(todasConDeuda.totalElements(), summary.pendiente());
-        assertTrue(summary.pendiente() > 0);
+        assertEquals(0, summary.pendiente());
         var alDia = inTx(() -> caja.listarCuentas(ListQuery.of("Cobro inactivo", 0, 100), CajaService.FiltroCaja.AL_DIA));
         assertTrue(alDia.content().stream().noneMatch(c -> c.socioId().equals(socioId)));
         var export = inTx(() -> caja.cuentasParaExportar(ListQuery.of("cobro INACTIVO", null, null),

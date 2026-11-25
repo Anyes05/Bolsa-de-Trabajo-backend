@@ -125,7 +125,9 @@ class CajaServiceCoverageTest {
         assertEquals(3, cuentas.size());
         // Filtros en servidor: coinciden con las métricas del resumen.
         assertEquals(resumen.alDia(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.AL_DIA).totalElements());
-        assertEquals(resumen.pendiente(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.DEUDA).totalElements());
+        var conDeuda = caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.DEUDA);
+        assertEquals(resumen.pendiente(), conDeuda.totalElements());
+        assertEquals(List.of(2L), conDeuda.content().stream().map(cuenta -> cuenta.socioId()).toList());
         assertEquals(resumen.inactivos(), caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.INACTIVO).totalElements());
         assertEquals(1, caja.listarCuentas(ListQuery.of(null, 0, 100), CajaService.FiltroCaja.MOROSO).totalElements());
         // Paginación: página de 1 elemento informa el total.
