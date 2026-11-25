@@ -24,7 +24,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.domain.EstadoMorosidad;
-import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.socio.dto.SocioUpdateDTO;
 import uy.ccisj.api.user.UserRepository;
@@ -68,12 +67,12 @@ class SocioSubscriptionDatabaseTest {
         history = spy(new SocioSubscriptionHistory(jdbc));
         doReturn(TODAY).when(history).today();
         caja = mock(CajaService.class);
-        var rubros = mock(RubroEmpleoRepository.class);
-        var rubro = mock(RubroEmpleo.class);
-        when(rubro.isActivo()).thenReturn(true);
-        when(rubros.findById(1L)).thenReturn(java.util.Optional.of(rubro));
-        service = new SocioService(repos.getRepository(SocioRepository.class), repos.getRepository(UserRepository.class),
-                null, rubros, null, caja, null, "http://example.test", history);
+        service = new SocioService(
+                repos.getRepository(SocioRepository.class),
+                repos.getRepository(UserRepository.class),
+                repos.getRepository(DireccionRepository.class),
+                repos.getRepository(RubroEmpleoRepository.class),
+                null, caja, null, "http://example.test", history);
         tx = new TransactionTemplate(new JpaTransactionManager(emf));
         String key = java.util.UUID.randomUUID().toString().substring(0, 24);
         Long user = jdbc.queryForObject("INSERT INTO usuarios (email, password_hash, rol, bps) VALUES (?, 'test', 'SOCIO', ?) RETURNING id",
