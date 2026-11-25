@@ -161,17 +161,6 @@ class SocioControladoresCoverageTest {
     }
 
     @Test
-    void historialContableControllerListaLosAsientosDelSocio() {
-        HistorialContableService service = mock(HistorialContableService.class);
-        HistorialContableController controller = new HistorialContableController(service);
-        var asiento = new HistorialContableService.Asiento(1L, "CUOTA", 2L, "EMISION", BigDecimal.TEN,
-                null, "ADMIN:a", "motivo", "{}");
-        when(service.listar(4L)).thenReturn(List.of(asiento));
-
-        assertEquals(List.of(asiento), controller.listar(4L));
-    }
-
-    @Test
     void adminAniversarioControllerEjecutaElProcesoDelDia() {
         AniversarioService service = mock(AniversarioService.class);
         var resultado = new AniversarioService.AniversarioRunResult(LocalDate.of(2026, 1, 1), 1, 1, 1, 0, 0);

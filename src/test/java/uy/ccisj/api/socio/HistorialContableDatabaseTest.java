@@ -28,7 +28,6 @@ class HistorialContableDatabaseTest {
     private TransactionTemplate tx;
     private CajaService caja;
     private TarifaService tarifas;
-    private HistorialContableService historial;
     private Long socioId;
 
     @BeforeAll
@@ -87,7 +86,6 @@ class HistorialContableDatabaseTest {
                 repos.getRepository(ReintegroProgramadoRepository.class), em);
         tarifas = new TarifaService(repos.getRepository(TarifaRepository.class), repos.getRepository(CuotaRepository.class),
                 repos.getRepository(SocioRepository.class), caja);
-        historial = new HistorialContableService(jdbc, em);
         tx = new TransactionTemplate(new JpaTransactionManager(emf));
         socioId = crearSocio();
         SecurityContextHolder.clearContext();
@@ -121,13 +119,11 @@ class HistorialContableDatabaseTest {
     @Test
     void backfillRegistersExistingMovementsAsEmissions() {
         // Otros tests pueden facturar períodos nuevos a este socio: se miran solo los asientos de la migración.
-        var entries = tx.execute(s -> historial.listar(backfillSocio)).stream()
-                .filter(e -> e.autor().equals("MIGRACION")).toList();
-        assertEquals(3, entries.size());
+        assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM historial_contable "
+                + "WHERE socio_id = ? AND autor = 'MIGRACION' AND tipo = 'EMISION'", Integer.class, backfillSocio));
         // Cuota 100, pago -50 y reintegro 20.
-        assertEquals(new BigDecimal("70.00"), entries.stream().map(HistorialContableService.Asiento::monto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
-        assertTrue(entries.stream().allMatch(e -> e.tipo().equals("EMISION")));
+        assertEquals(new BigDecimal("70.00"), jdbc.queryForObject("SELECT sum(monto) FROM historial_contable "
+                + "WHERE socio_id = ? AND autor = 'MIGRACION'", BigDecimal.class, backfillSocio));
     }
 
     @Test
