@@ -197,9 +197,6 @@ public class CajaService {
             return;
         }
         cuotaRepository.findFirstBySocioIdOrderByPeriodoDesc(socio.getId()).ifPresent(cuota -> {
-            if (cuota.getEstado() == EstadoCuota.ANULADA) {
-                return;
-            }
             cuota.setMontoTimbre(monto);
             cuota.setTimbreRecurrente(true);
         });
@@ -273,10 +270,8 @@ public class CajaService {
     public void actualizarMorosidad(Socio socio) {
         SaldoCuenta.Resultado resultado = calcularSaldo(listarHistorial(socio.getId()));
         for (Cuota cuota : cuotaRepository.findBySocioIdOrderByPeriodoDesc(socio.getId())) {
-            if (cuota.getEstado() != EstadoCuota.ANULADA) {
-                cuota.setEstado(resultado.pendientes().get("CUOTA:" + cuota.getId()).signum() == 0
-                        ? EstadoCuota.PAGADO : EstadoCuota.PENDIENTE);
-            }
+            cuota.setEstado(resultado.pendientes().get("CUOTA:" + cuota.getId()).signum() == 0
+                    ? EstadoCuota.PAGADO : EstadoCuota.PENDIENTE);
         }
         socio.setEstadoMorosidad(calcularEstadoMorosidad(socio, resultado));
     }
@@ -284,28 +279,22 @@ public class CajaService {
     private List<MovimientoCajaDTO> listarHistorial(Long socioId) {
         List<MovimientoCajaDTO> historial = new ArrayList<>();
         for (Cuota cuota : cuotaRepository.findBySocioIdOrderByPeriodoDesc(socioId)) {
-            if (cuota.getEstado() != EstadoCuota.ANULADA) {
-                historial.add(new MovimientoCajaDTO(cuota.getId(), "CUOTA",
-                        "Cuota " + YearMonth.from(cuota.getPeriodo()), cuota.getPeriodo(),
-                        cuota.getFechaVencimiento(), cuota.getMonto(), BigDecimal.ZERO, BigDecimal.ZERO,
-                        BigDecimal.ZERO, null, null, null, BigDecimal.ZERO, null));
-            }
+            historial.add(new MovimientoCajaDTO(cuota.getId(), "CUOTA",
+                    "Cuota " + YearMonth.from(cuota.getPeriodo()), cuota.getPeriodo(),
+                    cuota.getFechaVencimiento(), cuota.getMonto(), BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, null, null, null, BigDecimal.ZERO, null));
         }
         for (Reintegro reintegro : reintegroRepository.findBySocioIdOrderByFechaAscIdAsc(socioId)) {
-            if (reintegro.getCuota() == null || reintegro.getCuota().getEstado() != EstadoCuota.ANULADA) {
-                historial.add(new MovimientoCajaDTO(reintegro.getId(), "REINTEGRO", reintegro.getConcepto(),
-                        reintegro.getFecha(), reintegro.getFechaVencimiento(), reintegro.getMonto(),
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, BigDecimal.ZERO,
-                        reintegro.isRecurrente()));
-            }
+            historial.add(new MovimientoCajaDTO(reintegro.getId(), "REINTEGRO", reintegro.getConcepto(),
+                    reintegro.getFecha(), reintegro.getFechaVencimiento(), reintegro.getMonto(),
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, BigDecimal.ZERO,
+                    reintegro.isRecurrente()));
         }
         for (Pago pago : pagoRepository.findBySocioIdOrderByFechaEmisionAscIdAsc(socioId)) {
-            if (pago.getCuota() == null || pago.getCuota().getEstado() != EstadoCuota.ANULADA) {
-                historial.add(new MovimientoCajaDTO(pago.getId(), "PAGO", "Pago recibido", pago.getFechaEmision(),
-                        null, pago.getMontoCobrado(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                        pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones(), BigDecimal.ZERO,
-                        null));
-            }
+            historial.add(new MovimientoCajaDTO(pago.getId(), "PAGO", "Pago recibido", pago.getFechaEmision(),
+                    null, pago.getMontoCobrado(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    pago.getMetodoPago(), pago.getNroCobranzaExterno(), pago.getObservaciones(), BigDecimal.ZERO,
+                    null));
         }
         historial.sort(Comparator.comparing(MovimientoCajaDTO::fecha)
                 .thenComparingInt(registro -> switch (registro.tipo()) {

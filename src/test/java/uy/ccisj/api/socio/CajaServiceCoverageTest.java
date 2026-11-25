@@ -196,25 +196,20 @@ class CajaServiceCoverageTest {
 
         LocalDate periodo = mesActual.minusMonths(1);
         Cuota cuotaVigente = cuota(50L, socio, periodo, "100", EstadoCuota.PENDIENTE);
-        Cuota cuotaAnulada = cuota(51L, socio, periodo.minusMonths(1), "70", EstadoCuota.ANULADA);
-        when(cuotas.findBySocioIdOrderByPeriodoDesc(5L)).thenReturn(List.of(cuotaVigente, cuotaAnulada));
+        when(cuotas.findBySocioIdOrderByPeriodoDesc(5L)).thenReturn(List.of(cuotaVigente));
 
         Reintegro sinCuota = conId(new Reintegro(socio, "Timbre", new BigDecimal("30"), periodo,
                 SaldoCuenta.vencimiento(periodo), "recurrente:1:" + periodo, "recurrente"), 60L);
         Reintegro deCuotaVigente = conId(new Reintegro(socio, "Gasto", new BigDecimal("10"), periodo,
                 SaldoCuenta.vencimiento(periodo), null, null), 61L);
         ReflectionTestUtils.setField(deCuotaVigente, "cuota", cuotaVigente);
-        Reintegro deCuotaAnulada = conId(new Reintegro(socio, "Anulado", new BigDecimal("999"), periodo,
-                SaldoCuenta.vencimiento(periodo), null, "PUNTUAL"), 62L);
-        ReflectionTestUtils.setField(deCuotaAnulada, "cuota", cuotaAnulada);
-        when(reintegros.findBySocioIdOrderByFechaAscIdAsc(5L)).thenReturn(List.of(sinCuota, deCuotaVigente, deCuotaAnulada));
+        when(reintegros.findBySocioIdOrderByFechaAscIdAsc(5L)).thenReturn(List.of(sinCuota, deCuotaVigente));
 
         Pago anticipo = conId(new Pago(socio, new BigDecimal("50"), periodo.minusDays(5), MetodoPago.EFECTIVO), 70L);
         anticipo.setNroCobranzaExterno("REF-1");
         anticipo.setObservaciones("Anticipo");
         Pago mismoDia = conId(new Pago(cuotaVigente, new BigDecimal("40"), periodo, MetodoPago.EFECTIVO), 71L);
-        Pago deAnulada = conId(new Pago(cuotaAnulada, new BigDecimal("500"), periodo, MetodoPago.EFECTIVO), 72L);
-        when(pagos.findBySocioIdOrderByFechaEmisionAscIdAsc(5L)).thenReturn(List.of(anticipo, mismoDia, deAnulada));
+        when(pagos.findBySocioIdOrderByFechaEmisionAscIdAsc(5L)).thenReturn(List.of(anticipo, mismoDia));
 
         ReintegroProgramado programado = conId(new ReintegroProgramado(socio, "Timbre", new BigDecimal("30"), periodo), 80L);
         when(programados.findBySocioIdOrderByIdAsc(5L)).thenReturn(List.of(programado));
@@ -291,8 +286,7 @@ class CajaServiceCoverageTest {
         Socio socio = socio(6L, usuario("BPS6", "666", true), EstadoMorosidad.MOROSO);
         bloquear(socio);
         Cuota cuota = cuota(600L, socio, mesActual.minusMonths(3), "100", EstadoCuota.PENDIENTE);
-        Cuota anulada = cuota(601L, socio, mesActual.minusMonths(4), "100", EstadoCuota.ANULADA);
-        when(cuotas.findBySocioIdOrderByPeriodoDesc(6L)).thenReturn(List.of(cuota, anulada));
+        when(cuotas.findBySocioIdOrderByPeriodoDesc(6L)).thenReturn(List.of(cuota));
         // Antes del cobro no hay pagos; luego se lee el pago recién guardado.
         Pago guardado = conId(new Pago(socio, new BigDecimal("100"), hoy, MetodoPago.EFECTIVO), 1L);
         when(pagos.findBySocioIdOrderByFechaEmisionAscIdAsc(6L)).thenReturn(List.of(), List.of(guardado));
@@ -306,7 +300,6 @@ class CajaServiceCoverageTest {
         assertNull(pago.getValue().getObservaciones());
         assertEquals(hoy, pago.getValue().getFechaEmision());
         assertEquals(EstadoCuota.PAGADO, cuota.getEstado());
-        assertEquals(EstadoCuota.ANULADA, anulada.getEstado(), "las cuotas anuladas no cambian de estado");
         assertEquals(EstadoMorosidad.AL_DIA, socio.getEstadoMorosidad());
         assertEquals(EstadoMorosidad.AL_DIA, cuenta.estadoMorosidad());
         assertEquals(0, cuenta.saldo().signum());
@@ -389,18 +382,8 @@ class CajaServiceCoverageTest {
     }
 
     @Test
-    void reintegroRecurrenteNoMarcaCuotaAnuladaNiFallaSinCuota() {
-        Socio socio = socio(11L, usuario("BPS11", "1111", true), EstadoMorosidad.AL_DIA);
-        bloquear(socio);
-        Cuota anulada = cuota(1100L, socio, mesActual, "100", EstadoCuota.ANULADA);
-        when(cuotas.findFirstBySocioIdOrderByPeriodoDesc(11L)).thenReturn(Optional.of(anulada));
+    void reintegroRecurrenteNoFallaSinCuota() {
         when(programados.saveAndFlush(any())).thenAnswer(invocation -> conId(invocation.getArgument(0), 78L));
-
-        caja.registrarReintegro(11L, new RegistrarReintegroDTO("Timbre", new BigDecimal("25"), true));
-
-        assertEquals(0, anulada.getMontoTimbre().signum());
-        assertFalse(anulada.isTimbreRecurrente());
-
         Socio sinCuota = socio(12L, usuario("BPS12", "1212", true), EstadoMorosidad.AL_DIA);
         bloquear(sinCuota);
         assertDoesNotThrow(() -> caja.registrarReintegro(12L,

@@ -161,17 +161,14 @@ class SocioControladoresCoverageTest {
     }
 
     @Test
-    void historialContableControllerListaYAnulaConElMotivoRecibido() {
+    void historialContableControllerListaLosAsientosDelSocio() {
         HistorialContableService service = mock(HistorialContableService.class);
         HistorialContableController controller = new HistorialContableController(service);
         var asiento = new HistorialContableService.Asiento(1L, "CUOTA", 2L, "EMISION", BigDecimal.TEN,
-                null, "ADMIN:a", "motivo", null, "{}");
+                null, "ADMIN:a", "motivo", "{}");
         when(service.listar(4L)).thenReturn(List.of(asiento));
 
         assertEquals(List.of(asiento), controller.listar(4L));
-        controller.anular(4L, 9L, new HistorialContableController.AnularCuota("Error de carga"));
-
-        verify(service).anularCuota(4L, 9L, "Error de carga");
     }
 
     @Test

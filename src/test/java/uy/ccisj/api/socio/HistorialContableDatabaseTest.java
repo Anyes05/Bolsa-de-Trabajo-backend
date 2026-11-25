@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -13,8 +12,6 @@ import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.*;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.support.TransactionTemplate;
 import uy.ccisj.api.domain.MetodoPago;
@@ -44,7 +41,7 @@ class HistorialContableDatabaseTest {
         backfillSocio = crearSocio();
         Long cuota = jdbc.queryForObject("""
                 INSERT INTO cuotas(socio_id, periodo, monto, fecha_vencimiento, estado)
-                VALUES (?, '2024-01-01', 100, '2024-01-31', 'ANULADA') RETURNING id
+                VALUES (?, '2024-01-01', 100, '2024-01-31', 'PENDIENTE') RETURNING id
                 """, Long.class, backfillSocio);
         jdbc.update("""
                 INSERT INTO pagos(socio_id, cuota_id, monto_cobrado, fecha_emision, metodo_pago)
@@ -90,7 +87,7 @@ class HistorialContableDatabaseTest {
                 repos.getRepository(ReintegroProgramadoRepository.class), em);
         tarifas = new TarifaService(repos.getRepository(TarifaRepository.class), repos.getRepository(CuotaRepository.class),
                 repos.getRepository(SocioRepository.class), caja);
-        historial = new HistorialContableService(jdbc, em, caja);
+        historial = new HistorialContableService(jdbc, em);
         tx = new TransactionTemplate(new JpaTransactionManager(emf));
         socioId = crearSocio();
         SecurityContextHolder.clearContext();
@@ -122,13 +119,24 @@ class HistorialContableDatabaseTest {
     }
 
     @Test
-    void backfillPreservesCancelledOriginalsAndTheirLinkedPayments() {
-        var entries = tx.execute(s -> historial.listar(backfillSocio));
-        assertEquals(6, entries.size());
-        assertEquals(0, entries.stream().map(HistorialContableService.Asiento::monto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add).signum());
-        assertTrue(entries.stream().allMatch(e -> e.autor().equals("MIGRACION")));
-        assertEquals(3, entries.stream().filter(e -> e.originalId() != null).count());
+    void backfillRegistersExistingMovementsAsEmissions() {
+        // Otros tests pueden facturar períodos nuevos a este socio: se miran solo los asientos de la migración.
+        var entries = tx.execute(s -> historial.listar(backfillSocio)).stream()
+                .filter(e -> e.autor().equals("MIGRACION")).toList();
+        assertEquals(3, entries.size());
+        // Cuota 100, pago -50 y reintegro 20.
+        assertEquals(new BigDecimal("70.00"), entries.stream().map(HistorialContableService.Asiento::monto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertTrue(entries.stream().allMatch(e -> e.tipo().equals("EMISION")));
+    }
+
+    @Test
+    void journalOnlyAcceptsEmissionsAndCuotasOnlyPendingOrPaid() {
+        Long cuota = cuota();
+        assertThrows(DataAccessException.class, () -> jdbc.update("UPDATE cuotas SET estado='ANULADA' WHERE id=?", cuota));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns "
+                + "WHERE table_schema=current_schema() AND table_name='historial_contable' AND column_name='original_id'", Integer.class));
+        assertEquals(1, count());
     }
 
     @Test
@@ -169,35 +177,6 @@ class HistorialContableDatabaseTest {
     }
 
     @Test
-    void cancellingThenRollingBackRestoresBothDebtAndJournal() {
-        Long cuota = cuota();
-        assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(s -> {
-            historial.anularCuota(socioId, cuota, "Se revierte la transacción");
-            throw new IllegalStateException("rollback");
-        }));
-        assertEquals(1, count());
-        assertEquals(new BigDecimal("100.00"), tx.execute(s -> caja.getHistorial(socioId)).saldo());
-    }
-
-    @Test
-    void cancellationAppendsReverseWithAdminReasonAndKeepsOriginalAndBalance() {
-        Long cuota = cuota();
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                "admin@example.test", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
-        tx.executeWithoutResult(s -> historial.anularCuota(socioId, cuota, "Emisión duplicada"));
-        var entries = tx.execute(s -> historial.listar(socioId));
-        assertEquals(2, entries.size());
-        assertEquals(entries.get(0).id(), entries.get(1).originalId());
-        assertEquals("ADMIN:admin@example.test", entries.get(1).autor());
-        assertEquals("Emisión duplicada", entries.get(1).motivo());
-        assertEquals(new BigDecimal("-100.00"), entries.get(1).monto());
-        assertEquals(0, tx.execute(s -> caja.getHistorial(socioId)).saldo().signum());
-        assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> historial.anularCuota(socioId, cuota, "Otra")));
-        assertThrows(DataAccessException.class, () -> jdbc.update("UPDATE cuotas SET estado='PENDIENTE' WHERE id=?", cuota));
-        assertEquals(2, count());
-    }
-
-    @Test
     void paymentAllocationAndRecurringMetadataStayMutableWithoutDuplicateEvents() {
         Long cuota = cuota();
         tx.executeWithoutResult(s -> caja.registrarReintegro(socioId,
@@ -207,7 +186,6 @@ class HistorialContableDatabaseTest {
         assertEquals(3, count());
         assertEquals("PAGADO", jdbc.queryForObject("SELECT estado FROM cuotas WHERE id=?", String.class, cuota));
         assertEquals(0, tx.execute(s -> caja.getHistorial(socioId)).saldo().signum());
-        assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> historial.anularCuota(socioId, cuota, "No permitido")));
         assertThrows(DataAccessException.class, () -> jdbc.update("UPDATE pagos SET monto_cobrado=1 WHERE socio_id=?", socioId));
         assertThrows(DataAccessException.class, () -> jdbc.update("DELETE FROM reintegros WHERE socio_id=?", socioId));
         Long programado = jdbc.queryForObject("SELECT id FROM reintegros_programados WHERE socio_id=?", Long.class, socioId);
