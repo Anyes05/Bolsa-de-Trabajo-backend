@@ -768,6 +768,19 @@ class SocioServiceCoverageTest {
     }
 
     @Test
+    void deactivateSocioCancelaElReingresoProgramadoPendiente() {
+        User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
+        user.setActivo(false);
+        socio(7L, user, "Razón");
+        when(history.hasPending(7L)).thenReturn(true);
+
+        service.deactivateSocio(7L);
+
+        verify(history).cancel(7L);
+        verify(history, never()).record(any(), any(), any());
+    }
+
+    @Test
     void activateSocioRechazaSiYaEstaActivo() {
         socio(7L, user(10L, "cuenta@empresa.test", Role.SOCIO), "Razón");
         assertEquals("El socio ya tiene una suscripción activa",
