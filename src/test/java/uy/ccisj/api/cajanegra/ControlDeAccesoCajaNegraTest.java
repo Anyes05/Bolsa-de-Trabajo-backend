@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * CN-API-09 y CN-API-10: tabla de decisión rol × área protegida (RF-19 / control de acceso del SSDLC).
+ * CN-API-09 y CN-API-10: tabla de decisión rol × área protegida (RF-01 / control de acceso del SSDLC).
  *
  * <p>Resultado esperado: 401 sin sesión, 403 con un rol que no corresponde, 2xx con el rol correcto.
  */

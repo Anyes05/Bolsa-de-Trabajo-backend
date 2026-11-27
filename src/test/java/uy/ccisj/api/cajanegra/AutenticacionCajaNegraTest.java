@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-/** CN-API-01 a CN-API-08: registro, ingreso, límite de intentos y cierre de sesión (RF-19). */
-@DisplayName("Caja negra API — autenticación y registro (RF-19)")
+/** CN-API-01 a CN-API-08: registro, ingreso, límite de intentos y cierre de sesión (RF-01 y RF-03). */
+@DisplayName("Caja negra API — autenticación y registro (RF-01 y RF-03)")
 class AutenticacionCajaNegraTest extends ApiCajaNegraBase {
 
     @Test

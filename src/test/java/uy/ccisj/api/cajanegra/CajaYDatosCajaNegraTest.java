@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-/** CN-API-18 a CN-API-21: cobros de Caja (RF-05), alta de socios y datos personales del postulante. */
+/** CN-API-18 a CN-API-21: cobros de Caja (RF-09), alta de socios (RF-06) y datos personales del postulante (RF-05). */
 @DisplayName("Caja negra API — caja, socios y datos personales")
 class CajaYDatosCajaNegraTest extends ApiCajaNegraBase {
 

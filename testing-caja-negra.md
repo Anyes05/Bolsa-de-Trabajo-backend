@@ -54,7 +54,7 @@ del backend con todas las pruebas: 100% (4045/4045).
 
 ## Casos de prueba
 
-### Autenticación y registro (RF-18 / RF-19) — `AutenticacionCajaNegraTest`
+### Autenticación y registro (RF-01 / RF-03) — `AutenticacionCajaNegraTest`
 
 | ID | Técnica | Entrada | Resultado esperado | Obtenido |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@ Todas las combinaciones dieron el resultado esperado ✅.
 |---|---|---|---|---|
 | CN-API-10 | PE | `/actuator/health` y `/sectors` sin sesión; error 403 | Las rutas públicas dan 200; el error no expone trazas ni clases internas | ✅ |
 
-### Bolsa de empleo y postulaciones (RF-11) — `BolsaDeEmpleoCajaNegraTest`
+### Bolsa de empleo y postulaciones (RF-15, RF-16 y RF-23) — `BolsaDeEmpleoCajaNegraTest`
 
 | ID | Técnica | Entrada | Resultado esperado | Obtenido |
 |---|---|---|---|---|
@@ -136,7 +136,7 @@ Resultado esperado:
 | Título | 181 caracteres | 400 |
 | Descripción | vacía | 400 |
 
-### Caja, socios y datos personales (RF-05 y relacionados) — `CajaYDatosCajaNegraTest`
+### Caja, socios y datos personales (RF-05, RF-06 y RF-09) — `CajaYDatosCajaNegraTest`
 
 | ID | Técnica | Entrada | Resultado esperado | Obtenido |
 |---|---|---|---|---|

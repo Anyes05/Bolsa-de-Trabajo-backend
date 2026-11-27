@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-/** CN-API-11 a CN-API-16: ofertas laborales y postulaciones (RF-11), de punta a punta por HTTP. */
-@DisplayName("Caja negra API — bolsa de empleo y postulaciones (RF-11)")
+/** CN-API-11 a CN-API-16: ofertas laborales (RF-15) y postulaciones (RF-16 y RF-23), de punta a punta por HTTP. */
+@DisplayName("Caja negra API — bolsa de empleo y postulaciones (RF-15, RF-16 y RF-23)")
 class BolsaDeEmpleoCajaNegraTest extends ApiCajaNegraBase {
 
     /** La API rechaza cierres anteriores a hoy en America/Montevideo, no en la zona del runner. */
@@ -161,7 +161,7 @@ class BolsaDeEmpleoCajaNegraTest extends ApiCajaNegraBase {
     }
 
     @Test
-    @DisplayName("CN-API-17 Un archivo que dice ser PDF pero no lo es se rechaza")
+    @DisplayName("CN-API-17 Un archivo que dice ser PDF pero no lo es se rechaza (RF-21)")
     void cvConFirmaFalsa() {
         String postulante = registrarPostulante(unico("cvfalso") + "@example.test");
         long perfilId = enviar("GET", "/postulante/perfiles", null, postulante).cuerpo().get(0).get("id").asLong();
