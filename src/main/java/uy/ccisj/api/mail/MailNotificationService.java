@@ -111,7 +111,7 @@ public class MailNotificationService {
 
     private static String rootMessage(Throwable exception) {
         Throwable current = exception;
-        while (current.getCause() != null && current.getCause() != current) {
+        while (current.getCause() != null) {
             current = current.getCause();
         }
         String message = current.getMessage();

@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import uy.ccisj.api.socio.importacion.CamposFicticios;
 import uy.ccisj.api.catalogo.RubroEmpleo;
 import uy.ccisj.api.catalogo.RubroEmpleoRepository;
 import uy.ccisj.api.domain.EstadoMorosidad;
@@ -253,12 +254,20 @@ class SocioServiceCoverageTest {
         completo.setRubro(comercio);
         Socio sinAcceso = new Socio(user(31L, "pendiente@empresa.test", Role.SOCIO), "Pendiente SRL");
         sinAcceso.setAccesoHabilitado(false);
+        Socio importado = new Socio(user(32L, "importado@empresa.test", Role.SOCIO), "Importada SA");
+        importado.setAccesoHabilitado(true);
+        importado.setCamposFicticios(CamposFicticios.serialize(new java.util.LinkedHashSet<>(
+                List.of(CamposFicticios.FECHA_ANIVERSARIO))));
         when(socios.findAllByOrderByRazonSocialAsc()).thenReturn(List.of(completo, sinAcceso));
 
         var todos = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 0, 20), false);
         assertEquals(2, todos.totalElements());
         var incompletos = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 0, 20), true);
         assertEquals(List.of("Pendiente SRL"), incompletos.content().stream().map(SocioResponseDTO::razonSocial).toList());
+        when(socios.findAllByOrderByRazonSocialAsc()).thenReturn(List.of(completo, importado));
+        var conFicticios = service.pageSocios(uy.ccisj.api.common.ListQuery.of(null, 0, 20), true);
+        assertEquals(List.of("Importada SA"), conFicticios.content().stream().map(SocioResponseDTO::razonSocial).toList());
+        when(socios.findAllByOrderByRazonSocialAsc()).thenReturn(List.of(completo, sinAcceso));
         var porRubro = service.pageSocios(uy.ccisj.api.common.ListQuery.of("comercio", 0, 20), false);
         assertEquals(List.of("Completa SA"), porRubro.content().stream().map(SocioResponseDTO::razonSocial).toList());
         var porEmail = service.pageSocios(uy.ccisj.api.common.ListQuery.of("PENDIENTE@", 0, 20), false);
@@ -824,6 +833,18 @@ class SocioServiceCoverageTest {
         orden.verify(history).record(7L, "REINGRESO", hoy);
         orden.verify(socios).save(socio);
         orden.verify(caja).actualizarMorosidad(socio);
+    }
+
+    @Test
+    void activateSocioConCuentaActivaPeroEstadoInactivoLoReactiva() {
+        User user = user(10L, "cuenta@empresa.test", Role.SOCIO);
+        Socio socio = socio(7L, user, "Razón");
+        socio.setEstadoMorosidad(EstadoMorosidad.INACTIVO);
+
+        service.activateSocio(7L, LocalDate.of(2026, 5, 1));
+
+        assertEquals(EstadoMorosidad.AL_DIA, socio.getEstadoMorosidad());
+        verify(history).record(7L, "REINGRESO", LocalDate.of(2026, 5, 1));
     }
 
     @Test

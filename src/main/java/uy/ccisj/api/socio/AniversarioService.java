@@ -139,7 +139,7 @@ public class AniversarioService {
             return socio.getEmailContacto().trim().toLowerCase(Locale.ROOT);
         }
         User user = socio.getUsuario();
-        if (user != null && user.getEmail() != null && !user.getEmail().isBlank()) {
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
             return user.getEmail().trim().toLowerCase(Locale.ROOT);
         }
         return null;

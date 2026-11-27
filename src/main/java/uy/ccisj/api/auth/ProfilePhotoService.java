@@ -2,7 +2,6 @@ package uy.ccisj.api.auth;
 
 import java.io.IOException;
 import java.util.Base64;
-import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -11,7 +10,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ProfilePhotoService {
-    private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
     private final JdbcTemplate jdbcTemplate;
 
     public ProfilePhotoService(JdbcTemplate jdbcTemplate) {
@@ -37,7 +35,7 @@ public class ProfilePhotoService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo procesar la foto", exception);
         }
         String type = FileSignatures.detectImageMime(photo);
-        if (type == null || !ALLOWED_TYPES.contains(type)) {
+        if (type == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser JPG, PNG o WEBP de hasta 5 MB");
         }
         requireUpdated(jdbcTemplate.update(

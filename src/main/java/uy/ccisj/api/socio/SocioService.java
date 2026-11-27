@@ -83,7 +83,7 @@ public class SocioService {
         return query.paginate(socioRepository.findAllByOrderByRazonSocialAsc().stream()
                 .map(this::toResponse)
                 .filter(socio -> !soloIncompletos
-                        || (socio.camposFicticios() != null && !socio.camposFicticios().isEmpty())
+                        || !socio.camposFicticios().isEmpty()
                         || !socio.accesoHabilitado())
                 .filter(socio -> query.matches(socio.razonSocial(), socio.cedula(), socio.bps(), socio.rut(),
                         socio.nombreRubro(), socio.emailUsuario(), socio.emailContacto()))
@@ -505,7 +505,7 @@ public class SocioService {
 
     private String resolveEmailCredenciales(Socio socio, User user) {
         String destinatario = trimToNull(socio.getEmailContacto());
-        if (destinatario == null && user != null) {
+        if (destinatario == null) {
             destinatario = trimToNull(user.getEmail());
         }
         return destinatario;

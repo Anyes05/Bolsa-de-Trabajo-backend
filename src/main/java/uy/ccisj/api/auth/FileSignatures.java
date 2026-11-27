@@ -65,7 +65,7 @@ public final class FileSignatures {
             ZipEntry entry;
             int seen = 0;
             while ((entry = zip.getNextEntry()) != null && seen++ < 40) {
-                String name = entry.getName() == null ? "" : entry.getName().toLowerCase(Locale.ROOT);
+                String name = entry.getName().toLowerCase(Locale.ROOT);
                 if ("[content_types].xml".equals(name) || name.startsWith("word/")) {
                     return true;
                 }

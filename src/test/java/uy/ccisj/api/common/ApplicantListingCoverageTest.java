@@ -1,6 +1,8 @@
 package uy.ccisj.api.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -22,5 +24,18 @@ class ApplicantListingCoverageTest {
         assertEquals(List.of("FULL_TIME"), pagina.disponibilidades());
         assertEquals(3, pagina.perfiles());
         assertEquals(3, pagina.pagina().content().size());
+    }
+
+    @Test
+    void filtrosEnBlancoSeIgnoranYUnPerfilSinRubrosNoCoincideConElRubroPedido() {
+        ApplicantListing.Filters vacios = ApplicantListing.Filters.of("  ", " ", "   ");
+        assertNull(vacios.rubro());
+        assertNull(vacios.disponibilidad());
+        assertNull(vacios.libreta());
+
+        ApplicantListing.Fields sinRubros =
+                new ApplicantListing.Fields(1L, "Ana", "a@x.test", "1", "1", "P1", null, "FULL_TIME", null);
+        assertFalse(ApplicantListing.matches(sinRubros, ListQuery.of(null, 0, 20),
+                ApplicantListing.Filters.of("Ventas", null, null)));
     }
 }

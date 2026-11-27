@@ -312,7 +312,7 @@ public class SocioImportService {
     }
 
     private static boolean localidadEquals(String raw, String expected) {
-        return raw != null && fold(raw).equals(fold(expected));
+        return fold(raw).equals(fold(expected));
     }
 
     private static AddressParts splitAddress(String raw) {
@@ -324,7 +324,7 @@ public class SocioImportService {
         if (matcher.matches()) {
             String calle = matcher.group(1).trim();
             String numero = matcher.group(2).trim();
-            if (!calle.isEmpty() && numero.length() <= 20) {
+            if (numero.length() <= 20) {
                 return new AddressParts(truncate(calle, 160), numero, false);
             }
         }
@@ -344,7 +344,7 @@ public class SocioImportService {
                     if ("INACTIVO".equals(fila.estado())) {
                         inactivos++;
                     }
-                    if (fila.camposFicticios() != null && !fila.camposFicticios().isEmpty()) {
+                    if (!fila.camposFicticios().isEmpty()) {
                         conFicticios++;
                     }
                 }

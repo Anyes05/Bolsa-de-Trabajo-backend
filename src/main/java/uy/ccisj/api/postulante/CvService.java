@@ -365,7 +365,6 @@ public class CvService {
     }
 
     private String normalize(String value) {
-        if (value == null) return "";
         // Quita tildes para que "Unión libre" o "Viúdo" se detecten igual que sin acento.
         return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")

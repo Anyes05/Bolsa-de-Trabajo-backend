@@ -26,6 +26,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import uy.ccisj.api.auth.ProfilePhotoService;
+import uy.ccisj.api.common.ApplicantListing;
 import uy.ccisj.api.storage.S3StorageService;
 import uy.ccisj.api.support.DatabaseTestConfig;
 import uy.ccisj.api.user.Role;
@@ -109,6 +110,22 @@ class PostulanteJdbcControladoresCoverageTest {
         when(postulantes.findByUsuarioEmailIgnoreCase(BRUNO)).thenReturn(Optional.of(bruno));
         perfiles = new PostulantePerfilController(jdbc, postulantes);
         datos = new PostulanteDatosPersonalesController(jdbc, photos);
+    }
+
+    @Test
+    void adminPaginaFiltraPorEstadoYCuentaActivosEInactivos() {
+        AdminPostulanteController.AdminApplicantPage todos =
+                admin.page(auth(ADMIN), null, null, null, null, null, 0, 20);
+        AdminPostulanteController.AdminApplicantPage inactivos = admin.page(auth(ADMIN), null, null, null, null,
+                AdminPostulanteController.EstadoFiltro.INACTIVO, 0, 20);
+
+        assertThat(todos.inactivos()).isPositive();
+        assertThat(todos.activos() + todos.inactivos()).isEqualTo(
+                admin.list(auth(ADMIN)).stream().map(AdminPostulanteController.ApplicantProfile::applicantId).distinct().count());
+        assertThat(inactivos.resultado().pagina().content())
+                .extracting(ApplicantListing.Group::applicantId)
+                .contains(brunoId)
+                .doesNotContain(anaId);
     }
 
     @Test

@@ -110,11 +110,11 @@ public class PostulantePerfilController {
                        descripcion_experiencia, visible
                   FROM perfiles_laborales
                  WHERE id = ? AND postulante_id = ?
-                """, rs -> rs.next() ? new PerfilResponse(
+                """, (rs, rowNum) -> new PerfilResponse(
                 rs.getLong("id"), rs.getString("nombre"), rs.getString("disponibilidad_horaria"),
                 rs.getBoolean("tiene_vehiculo"), rs.getString("libreta"), rs.getString("ultimo_empleo"),
-                rs.getString("descripcion_experiencia"), rs.getBoolean("visible"), rubros(rs.getLong("id"))) : null,
-                perfilId, postulanteId);
+                rs.getString("descripcion_experiencia"), rs.getBoolean("visible"), rubros(rs.getLong("id"))),
+                perfilId, postulanteId).stream().findFirst().orElse(null);
     }
 
     private List<String> rubros(Long perfilId) {
